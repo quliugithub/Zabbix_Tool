@@ -10,6 +10,7 @@ const State = {
     config: {},
     taskIds: { install: null, batch: [], uninstall: null },
     logList: [],
+    logFilter: null,
     currentTask: null,
     logDetail: '',
 };
@@ -18,10 +19,12 @@ State.batchSelection = new Set();
 State.batchList = State.batchList || [];
 State.batchResults = {};
 State.currentBatchId = null;
-State.selector = { type: null, rowId: null, filter: '', temp: new Set() };
+State.currentBatchName = '';
+State.selector = { type: null, rowId: null, rowIds: [], filter: '', temp: new Set(), context: 'batch' };
 State.historyHidden = State.historyHidden || false;
 State.historyFloatPos = State.historyFloatPos || null;
 State.batchResizeBound = false;
+State.lastInstallFilter = null;
 
 // === 工具函数 ===
 const escapeHtml = (str) => {
@@ -165,8 +168,17 @@ function renderLogList() {
     }).join('');
 }
 
-async function loadLogList() {
-    const res = await api('/api/zabbix/logs');
+async function loadLogList(params = null) {
+    const p = params !== null ? params : (State.logFilter || {});
+    State.logFilter = p;
+    const qs = new URLSearchParams();
+    if (p.limit) qs.set('limit', p.limit);
+    if (p.hostname) qs.set('hostname', p.hostname);
+    if (p.ip) qs.set('ip', p.ip);
+    if (p.host_id) qs.set('host_id', p.host_id);
+    if (p.zabbix_url) qs.set('zabbix_url', p.zabbix_url);
+    const url = qs.toString() ? `/api/zabbix/logs?${qs.toString()}` : '/api/zabbix/logs';
+    const res = await api(url);
     if (res.ok) {
         State.logList = res.data || [];
         renderLogList();
@@ -181,6 +193,19 @@ async function viewLog(taskId) {
     document.getElementById('logContent').textContent = '加载中...';
     await fetchLogs(taskId);
     document.getElementById('logContent').textContent = State.logDetail || '暂无日志';
+}
+
+async function refreshLogList() {
+    const logContentEl = document.getElementById('logContent');
+    if (logContentEl) logContentEl.textContent = '加载任务列表...';
+    await loadLogList();
+    const availableIds = State.logList.map(x => x.task_id);
+    const tid = (State.currentTask && availableIds.includes(State.currentTask)) ? State.currentTask : (State.logList[0]?.task_id || null);
+    if (tid) {
+        await viewLog(tid);
+    } else if (logContentEl) {
+        logContentEl.textContent = '暂无历史日志';
+    }
 }
 
 // === 业务逻辑 ===
@@ -200,6 +225,7 @@ async function loadFragments() {
         }
     }
     initFloatingHistoryDrag();
+    bindBatchNameInput();
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -237,11 +263,11 @@ async function loadConfig(isManual = false) {
         setVal('cfg_api_base', c.zabbix_api_base);
         setVal('cfg_user', c.zabbix_api_user);
         setVal('cfg_password', c.zabbix_api_password);
-        setVal('cfg_default_template', c.default_template_id);
-        setVal('cfg_default_group', c.default_group_id);
         setVal('cfg_server_host', c.zabbix_server_host);
-        setVal('cfg_agent_tgz', c.agent_tgz_url);
         setVal('local_agent_path', c.local_agent_path);
+        setVal('agent_install_dir', c.agent_install_dir);
+        setVal('project_name', c.project_name);
+        setVal('cfg_version', c.zabbix_version);
         updateDashboard();
         if(isManual) showToast('配置已重置');
     }
@@ -253,10 +279,10 @@ async function saveConfig(btn) {
             zabbix_api_base: getVal('cfg_api_base'),
             zabbix_api_user: getVal('cfg_user'),
             zabbix_api_password: getVal('cfg_password'),
-            default_template_id: getVal('cfg_default_template'),
-            default_group_id: getVal('cfg_default_group'),
+            agent_install_dir: getVal('agent_install_dir') || '/opt/zabbix-agent/',
+            project_name: getVal('project_name') || '',
+            zabbix_version: getVal('cfg_version'),
             zabbix_server_host: getVal('cfg_server_host'),
-            agent_tgz_url: getVal('cfg_agent_tgz'),
             local_agent_path: getVal('local_agent_path'),
         };
         const res = await api('/api/zabbix/config', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
@@ -334,21 +360,17 @@ const debouncedFilterGroups = debounce(() => {
 });
 
 const renderProxyDropdown = () => {
-    const container = document.getElementById('proxyOptions');
-    if (!container) return;
+    const select = document.getElementById('proxySelectInstall');
+    if (!select) return;
     const kw = (getVal('proxyFilter') || '').toLowerCase();
     const filtered = State.proxies.filter(p =>
         (p.name && p.name.toLowerCase().includes(kw)) || (p.host && p.host.toLowerCase().includes(kw))
     );
-    if (!filtered.length) {
-        container.innerHTML = '<div style="padding:8px;color:#999;">无 Proxy</div>';
-        return;
-    }
-    container.innerHTML = filtered.map(p => {
+    select.innerHTML = '<option value="">未选择</option>' + filtered.map(p => {
         const id = p.proxyid;
         const label = escapeHtml(p.name || p.host || id);
-        const checked = String(State.selectedProxyId) === String(id) ? 'checked' : '';
-        return `<label><input type="radio" name="proxyRad" value="${id}" ${checked} onchange="onSelectProxy('${id}')"> ${label}</label>`;
+        const selected = String(State.selectedProxyId) === String(id) ? 'selected' : '';
+        return `<option value="${id}" ${selected}>${label}</option>`;
     }).join('');
 };
 
@@ -372,6 +394,7 @@ window.onToggleGrp = (el) => {
 window.onSelectProxy = (id) => {
     State.selectedProxyId = id;
     renderProxySelected();
+    renderProxyDropdown();
 };
 
 const renderTags = (containerId, ids, source, idKey, removeFnName) => {
@@ -448,7 +471,6 @@ async function install(btn) {
             hostname: getVal('host') || null,
             ip: getVal('ip'),
             os_type: getVal('os'),
-            env: getVal('env'),
             port: parseInt(getVal('port')||10050),
             ssh_user: getVal('ssh_user'),
             ssh_password: getVal('ssh_password'),
@@ -469,6 +491,11 @@ async function install(btn) {
         if (ok && res.data) {
             if (res.data.task_id) {
                 State.taskIds.install = res.data.task_id;
+                State.lastInstallFilter = {
+                    host_id: res.data.host_id || null,
+                    zabbix_url: res.data.zabbix_url || (State.config?.zabbix_api_base || null),
+                    ip: payload.ip || null,
+                };
                 await showInstallLog(res.data.task_id);
             }
         }
@@ -533,9 +560,8 @@ function renderBatchHistoryList() {
     }
     wrap.innerHTML = State.batchList.map(item => {
         const active = State.currentBatchId && String(State.currentBatchId) === String(item.batch_id) ? 'active' : '';
-        const ts = item.ts ? new Date(item.ts * 1000).toLocaleString() : '';
         const count = item.count || (item.hosts?.length ?? 0) || 0;
-        const title = ts || '未知时间';
+        const title = item.name?.trim() || '未命名批次';
         const meta = `共 ${count} 台`;
         return `<div class="history-item ${active}" onclick="loadBatchById('${item.batch_id}')">
             <div class="history-item-title">${title}</div>
@@ -556,14 +582,10 @@ function renderBatchTable() {
         if (!validIds.has(id)) State.batchSelection.delete(id);
     });
 
-    const infoEl = document.getElementById('batchInfo');
-    if (infoEl) {
-        const count = State.batchRows.length;
-        if (State.currentBatchId) {
-            infoEl.textContent = `批次 ${State.currentBatchId} · ${count} 条`;
-        } else {
-            infoEl.textContent = count ? `未保存批次 · ${count} 条` : '当前未选择批次';
-        }
+    updateBatchInfoLabel();
+    const nameInput = document.getElementById('batchNameInput');
+    if (nameInput && nameInput !== document.activeElement) {
+        nameInput.value = State.currentBatchName || '';
     }
 
     if (!tbody) return;
@@ -578,8 +600,16 @@ function renderBatchTable() {
         const res = State.batchResults[id] || {};
         const status = res.status || '';
         const statusColor = status === 'ok' ? '#10b981' : (status === 'failed' ? '#ef4444' : '#64748b');
-        const taskBtn = res.task_id ? `<button class="secondary" onclick="openLogModalWithTask('${res.task_id}')">日志</button>` : '';
+        const statusIcon = status === 'ok' ? '✔' : (status === 'failed' ? '✖' : '⏺');
+        const statusClass = status === 'ok' ? 'ok' : (status === 'failed' ? 'failed' : 'pending');
         
+        const proxyOptions = State.proxies.map(p => {
+            const pid = String(p.proxyid);
+            const name = escapeHtml(p.name || p.host || pid);
+            const selected = String(row.proxy_id || '') === pid ? 'selected' : '';
+            return `<option value="${pid}" ${selected}>${name}</option>`;
+        }).join('') || '<option value="">暂无 Proxy</option>';
+
         const tmplTags = (row.template_ids || []).map(tid => {
             const t = State.templates.find(x => String(x.templateid) === String(tid));
             return `<span class="tag-chip">${escapeHtml(t?.name || tid)}</span>`;
@@ -595,27 +625,35 @@ function renderBatchTable() {
                 <td><input type="checkbox" ${checked} onchange="toggleBatchSelect('${id}')" /></td>
                 <td><input value="${escapeHtml(row.hostname || '')}" oninput="editBatchField('${id}','hostname',this.value)" /></td>
                 <td><input value="${escapeHtml(row.ip || '')}" oninput="editBatchField('${id}','ip',this.value)" /></td>
-                <td><input value="${escapeHtml(row.env || '')}" oninput="editBatchField('${id}','env',this.value)" /></td>
+                <td><input value="${escapeHtml(row.visible_name || '')}" oninput="editBatchField('${id}','visible_name',this.value)" /></td>
                 <td><input value="${escapeHtml(row.ssh_user || '')}" oninput="editBatchField('${id}','ssh_user',this.value)" /></td>
                 <td><input type="password" value="${escapeHtml(row.ssh_password || '')}" oninput="editBatchField('${id}','ssh_password',this.value)" /></td>
                 <td><input value="${escapeHtml(row.ssh_port || '')}" oninput="editBatchField('${id}','ssh_port',this.value)" style="width:70px;" /></td>
                 <td><input value="${escapeHtml(row.port || '')}" oninput="editBatchField('${id}','port',this.value)" style="width:70px;" /></td>
                 <td><input value="${escapeHtml(row.jmx_port || '')}" oninput="editBatchField('${id}','jmx_port',this.value)" style="width:70px;" /></td>
-                <td><input value="${escapeHtml(row.proxy_id || '')}" oninput="editBatchField('${id}','proxy_id',this.value)" /></td>
+                <td>
+                    <select class="table-select" onchange="onProxySelectChange('${id}', this)">
+                        <option value="">请选择 Proxy</option>
+                        ${proxyOptions}
+                    </select>
+                </td>
                 <td>
                     <div class="selector-cell">
                         <div class="tag-chips">${tmplTags}</div>
-                        <button class="secondary" onclick="openSelector('tmpl','${id}')">选择</button>
+                        <button class="secondary" onclick="openSelector('tmpl','${id}','batch')">选择</button>
                     </div>
                 </td>
                 <td>
                     <div class="selector-cell">
                         <div class="tag-chips">${grpTags}</div>
-                        <button class="secondary" onclick="openSelector('grp','${id}')">选择</button>
+                        <button class="secondary" onclick="openSelector('grp','${id}','batch')">选择</button>
                     </div>
                 </td>
-                <td style="color:${statusColor};">${status || ''}${res.error ? (' - ' + escapeHtml(res.error)) : ''}</td>
-                <td>${taskBtn}</td>
+                <td style="color:${statusColor};">
+                    <span class="status-ico ${statusClass}">${statusIcon}</span>
+                    ${status ? escapeHtml(status) : ''}
+                </td>
+                <td><button class="secondary" onclick="viewRowLog('${id}')">日志</button></td>
             </tr>
         `;
     }).join('');
@@ -625,17 +663,57 @@ function renderBatchTable() {
 
 window.updateBatchActions = function updateBatchActions() {
     const hasSelection = State.batchSelection.size > 0;
+    const singleSelection = State.batchSelection.size === 1;
     const delBtn = document.getElementById('deleteRowsBtn');
     if (delBtn) delBtn.disabled = !hasSelection;
+    const viewLogBtn = document.getElementById('viewRowLogBtn');
+    if (viewLogBtn) viewLogBtn.disabled = !singleSelection;
+    const applyTplBtn = document.getElementById('applyTplBtn');
+    const applyGrpBtn = document.getElementById('applyGrpBtn');
+    const applyProxyBtn = document.getElementById('applyProxyBtn');
+    [applyTplBtn, applyGrpBtn, applyProxyBtn].forEach(btn => {
+        if (btn) btn.disabled = !hasSelection;
+    });
 };
+
+function updateBatchInfoLabel() {
+    const infoEl = document.getElementById('batchInfo');
+    if (!infoEl) return;
+    const count = State.batchRows.length;
+    if (State.currentBatchId) {
+        const name = State.currentBatchName || `批次 ${State.currentBatchId}`;
+        infoEl.textContent = `${name} · ${count} 条`;
+    } else {
+        const name = State.currentBatchName ? `草稿 ${State.currentBatchName}` : '未保存批次';
+        infoEl.textContent = count ? `${name} · ${count} 条` : '当前未选择批次';
+    }
+}
+
+function bindBatchNameInput() {
+    const input = document.getElementById('batchNameInput');
+    if (!input) return;
+    input.addEventListener('input', (e) => {
+        State.currentBatchName = e.target.value || '';
+        updateBatchInfoLabel();
+    });
+    // 提交保存
+    input.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') {
+            saveCurrentBatch();
+        }
+    });
+}
 
 function getSelectedBatchIds() {
     return Array.from(State.batchSelection);
 }
 
 window.toggleBatchSelect = (id) => {
-    if (State.batchSelection.has(id)) State.batchSelection.delete(id);
-    else State.batchSelection.add(id);
+    if (State.batchSelection.has(id)) {
+        State.batchSelection.delete(id);
+    } else {
+        State.batchSelection.add(id);
+    }
     updateBatchActions();
 };
 
@@ -651,6 +729,12 @@ window.onGroupSelectChange = (rowId, selectEl) => {
     if (!row) return;
     const vals = Array.from(selectEl.selectedOptions).map(o => o.value).filter(Boolean);
     row.group_ids = vals;
+};
+
+window.onProxySelectChange = (rowId, selectEl) => {
+    const row = State.batchRows.find(r => String(r.item_id) === String(rowId));
+    if (!row) return;
+    row.proxy_id = selectEl.value || '';
 };
 
 function editBatchField(id, field, value) {
@@ -750,13 +834,13 @@ function setupBatchColumnResize() {
         th.style.position = 'relative';
         const handle = document.createElement('span');
         handle.className = 'col-resizer';
-        handle.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            const startX = e.pageX;
+
+        const startResize = (pageX) => {
+            const startX = pageX;
             const startWidth = th.offsetWidth;
             const move = (ev) => {
                 const delta = ev.pageX - startX;
-                const minWidth = idx === 0 ? 40 : 60;
+                const minWidth = idx === 0 ? 20 : 20;
                 const newW = Math.max(minWidth, startWidth + delta);
                 th.style.width = `${newW}px`;
                 rows().forEach(r => {
@@ -769,7 +853,21 @@ function setupBatchColumnResize() {
             };
             window.addEventListener('mousemove', move);
             window.addEventListener('mouseup', up);
+        };
+
+        handle.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            startResize(e.pageX);
         });
+
+        // 允许点击表头右侧区域开始拖拽
+        th.addEventListener('mousedown', (e) => {
+            if (th.offsetWidth - e.offsetX <= 12) {
+                e.preventDefault();
+                startResize(e.pageX);
+            }
+        });
+
         th.appendChild(handle);
     });
     State.batchResizeBound = true;
@@ -780,7 +878,6 @@ function createEmptyBatchRow() {
         item_id: `tmp-${Date.now()}-${Math.random().toString(16).slice(2,6)}`,
         hostname: '',
         ip: '',
-        env: '',
         ssh_user: '',
         ssh_password: '',
         ssh_port: '22',
@@ -814,6 +911,8 @@ window.clearAllBatchRows = () => {
     const bar = document.getElementById('fileStatusBar');
     if (display) display.textContent = '';
     if (bar) bar.classList.remove('show');
+    State.currentBatchName = '';
+    setVal('batchNameInput', '');
     renderBatchTable();
     showToast('已清空当前表格数据');
 };
@@ -842,13 +941,27 @@ function renderSelectorOptions() {
     }).join('');
 }
 
-window.openSelector = (type, rowId) => {
+window.openSelector = (type, rowId, context = 'batch') => {
     State.selector.type = type;
     State.selector.rowId = rowId;
+    State.selector.rowIds = [];
+    State.selector.context = context;
     State.selector.temp = new Set();
-    const row = State.batchRows.find(r => String(r.item_id) === String(rowId));
-    if (row) {
-        const defaults = type === 'grp' ? (row.group_ids || []) : (row.template_ids || []);
+    if (context === 'batch') {
+        const row = State.batchRows.find(r => String(r.item_id) === String(rowId));
+        if (row) {
+            const defaults = type === 'grp' ? (row.group_ids || []) : (row.template_ids || []);
+            defaults.forEach(id => State.selector.temp.add(String(id)));
+        }
+    } else if (context === 'batch-multi') {
+        State.selector.rowIds = Array.from(State.batchSelection);
+        const firstRow = State.batchRows.find(r => State.selector.rowIds.includes(String(r.item_id)));
+        if (firstRow) {
+            const defaults = type === 'grp' ? (firstRow.group_ids || []) : (firstRow.template_ids || []);
+            defaults.forEach(id => State.selector.temp.add(String(id)));
+        }
+    } else if (context === 'install') {
+        const defaults = type === 'grp' ? State.selectedGrpIds : State.selectedTplIds;
         defaults.forEach(id => State.selector.temp.add(String(id)));
     }
     const titleEl = document.getElementById('selectorTitle');
@@ -868,17 +981,106 @@ window.toggleSelectorItem = (el) => {
 
 window.filterSelectorList = () => renderSelectorOptions();
 
-window.confirmSelector = () => {
-    const row = State.batchRows.find(r => String(r.item_id) === String(State.selector.rowId));
-    if (row) {
-        if (State.selector.type === 'grp') {
-            row.group_ids = Array.from(State.selector.temp);
-        } else {
-            row.template_ids = Array.from(State.selector.temp);
-        }
+window.clearSelectorChoices = () => {
+    State.selector.temp = new Set();
+    renderSelectorOptions();
+};
+
+window.viewRowLog = async (rowId) => {
+    const row = State.batchRows.find(r => String(r.item_id) === String(rowId));
+    if (!row) return;
+    State.batchSelection = new Set([String(rowId)]);
+    updateBatchActions();
+    const res = State.batchResults[String(rowId)];
+    const tid = res && res.task_id ? res.task_id : (State.taskIds.batch?.[0] || null);
+    const hostId = res && res.host_id ? res.host_id : null;
+    const zabbixUrl = (res && res.zabbix_url) ? res.zabbix_url : (State.config?.zabbix_api_base || null);
+    document.getElementById('logModal').style.display='flex';
+    document.getElementById('logContent').textContent = '加载任务列表...';
+    // 优先按 host_id + zabbix_url 过滤，其次按 IP 过滤，避免主机名重复
+    const filter = { host_id: hostId, ip: row.ip || null, zabbix_url: zabbixUrl };
+    State.logFilter = filter;
+    await loadLogList(filter);
+    if (tid) {
+        await viewLog(tid);
+    } else if (State.logList.length) {
+        await viewLog(State.logList[0].task_id);
+    } else {
+        document.getElementById('logContent').textContent = '暂无任务日志';
     }
-    closeSelector();
+};
+
+window.viewSelectedRowLog = async () => {
+    const ids = Array.from(State.batchSelection);
+    if (ids.length !== 1) {
+        showToast('请先选择单条数据查看日志', 'warning');
+        return;
+    }
+    await viewRowLog(ids[0]);
+};
+
+window.applyTemplateToSelection = () => {
+    if (!State.batchSelection.size) return showToast('请先勾选至少一条数据', 'warning');
+    openSelector('tmpl', null, 'batch-multi');
+};
+
+window.applyGroupToSelection = () => {
+    if (!State.batchSelection.size) return showToast('请先勾选至少一条数据', 'warning');
+    openSelector('grp', null, 'batch-multi');
+};
+
+window.applyProxyToSelection = () => {
+    const ids = Array.from(State.batchSelection);
+    if (!ids.length) return showToast('请先勾选至少一条数据', 'warning');
+    if (!State.proxies.length) return showToast('暂无 Proxy 列表', 'warning');
+    const proxyList = State.proxies.map(p => `${p.name || p.host || p.proxyid} (${p.proxyid})`).join('\n');
+    const input = prompt(`请输入要应用的 Proxy ID:\n${proxyList}`, State.proxies[0]?.proxyid || '');
+    if (!input) return;
+    const exists = State.proxies.some(p => String(p.proxyid) === String(input));
+    if (!exists) return showToast('未找到对应 Proxy ID', 'error');
+    State.batchRows.forEach(r => {
+        if (ids.includes(String(r.item_id))) {
+            r.proxy_id = input;
+        }
+    });
     renderBatchTable();
+};
+
+window.confirmSelector = () => {
+    if (State.selector.context === 'install') {
+        if (State.selector.type === 'grp') {
+            State.selectedGrpIds = Array.from(State.selector.temp);
+            renderTags('groupSelected', State.selectedGrpIds, State.groups, 'groupid', 'removeGrp');
+        } else {
+            State.selectedTplIds = Array.from(State.selector.temp);
+            renderTags('tmplSelected', State.selectedTplIds, State.templates, 'templateid', 'removeTpl');
+        }
+        closeSelector();
+    } else if (State.selector.context === 'batch-multi') {
+        const ids = State.selector.rowIds || [];
+        ids.forEach(rid => {
+            const row = State.batchRows.find(r => String(r.item_id) === String(rid));
+            if (!row) return;
+            if (State.selector.type === 'grp') {
+                row.group_ids = Array.from(State.selector.temp);
+            } else {
+                row.template_ids = Array.from(State.selector.temp);
+            }
+        });
+        closeSelector();
+        renderBatchTable();
+    } else {
+        const row = State.batchRows.find(r => String(r.item_id) === String(State.selector.rowId));
+        if (row) {
+            if (State.selector.type === 'grp') {
+                row.group_ids = Array.from(State.selector.temp);
+            } else {
+                row.template_ids = Array.from(State.selector.temp);
+            }
+        }
+        closeSelector();
+        renderBatchTable();
+    }
 };
 
 window.closeSelector = () => {
@@ -887,6 +1089,7 @@ window.closeSelector = () => {
     State.selector.type = null;
     State.selector.rowId = null;
     State.selector.temp = new Set();
+    State.selector.context = 'batch';
     const searchEl = document.getElementById('selectorSearch');
     if (searchEl) searchEl.value = '';
 };
@@ -906,9 +1109,11 @@ async function loadBatchById(id) {
     const res = await api(`/api/zabbix/batch/${id}`);
     if (res.ok && res.data) {
         State.currentBatchId = res.data.batch_id;
+        State.currentBatchName = res.data.name || '';
         State.batchRows = res.data.hosts || [];
         State.batchSelection = new Set(State.batchRows.map(h => String(h.item_id)));
         State.batchResults = {};
+        setVal('batchNameInput', State.currentBatchName || '');
         renderBatchTable();
         renderBatchHistoryList(); // 更新选中状态
     } else {
@@ -921,6 +1126,7 @@ async function runBatch(action = 'install', btn) {
     // 如果没有批次ID，先创建一个临时批次 (对于手动添加的数据)
     // 这里简化逻辑：必须先有数据
     if (!State.batchRows.length) return showToast('请先添加数据', 'error');
+    if (!State.currentBatchId) return showToast('请先保存批次', 'warning');
     
     // 如果是手动添加的数据且没有 currentBatchId，可能需要先保存？
     // 或者直接发送 host_list 给后端。
@@ -967,6 +1173,7 @@ async function runBatch(action = 'install', btn) {
         if (handleResult(res, '批量任务已提交')) {
             const results = res.data?.results || [];
             results.forEach(r => { State.batchResults[String(r.item_id)] = r; });
+            State.taskIds.batch = results.map(r => r.task_id).filter(Boolean);
             renderBatchTable();
         }
     });
@@ -986,11 +1193,40 @@ async function uploadBatch(btn) {
         const ok = handleResult(res, '导入成功');
         if (ok && res.data) {
             State.currentBatchId = res.data.batch_id;
+            State.currentBatchName = res.data.name || f.name || '';
             State.batchRows = res.data.hosts || [];
             State.batchSelection = new Set(State.batchRows.map(h => String(h.item_id)));
             State.batchResults = {};
             renderBatchTable();
             await refreshBatchList();
+        }
+    });
+}
+
+async function saveCurrentBatch(btn) {
+    const name = (getVal('batchNameInput') || '').trim();
+    if (!name) return showToast('请填写批次名称', 'warning');
+    if (!State.batchRows.length) return showToast('请先添加数据后再保存', 'warning');
+
+    const dup = State.batchList.find(
+        b => (b.name || '').trim().toLowerCase() === name.toLowerCase() && String(b.batch_id) !== String(State.currentBatchId || '')
+    );
+    if (dup) return showToast('批次名已存在，请更换名称', 'error');
+
+    const payload = {
+        name,
+        batch_id: State.currentBatchId,
+        hosts: State.batchRows
+    };
+    await withLoading(btn, async () => {
+        const res = await api('/api/zabbix/batch/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        if (handleResult(res, '批次已保存')) {
+            State.currentBatchId = res.data?.batch_id || State.currentBatchId;
+            State.currentBatchName = name;
+            State.batchSelection = new Set(State.batchRows.map(h => String(h.item_id)));
+            await refreshBatchList();
+            renderBatchTable();
+            closeModal('saveBatchModal');
         }
     });
 }
@@ -1022,11 +1258,13 @@ window.toggleAllBatchRows = (checkbox) => {
 
 
 async function downloadBatchTemplate() {
-    const res = await api('/api/zabbix/batch/template');
-    if (!res.ok || !res.data) { handleResult(res); return; }
-    const content = res.data.content || '';
-    const filename = res.data.filename || 'zabbix_batch_template.csv';
-    const blob = new Blob([content], {type:'text/csv;charset=utf-8;'});
+    const resp = await fetch('/api/zabbix/batch/template/download');
+    if (!resp.ok) {
+        showToast('下载模板失败', 'error');
+        return;
+    }
+    const blob = await resp.blob();
+    const filename = 'zabbix_batch_template.xlsx';
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -1091,12 +1329,17 @@ const debouncedSearchGroup = debounce(() => {
     renderTable('groupTable', rows);
 });
 
-async function openLogModalWithTask(targetTaskId) {
+async function openLogModalWithTask(targetTaskId, filterParams = null) {
+    State.logDetail = '';
+    const logContentEl = document.getElementById('logContent');
+    if (logContentEl) logContentEl.textContent = '';
     document.getElementById('logModal').style.display='flex';
-    document.getElementById('logContent').textContent = '加载任务列表...';
-    await loadLogList();
+    if (logContentEl) logContentEl.textContent = '加载任务列表...';
+    const fp = filterParams || {};
+    await loadLogList(fp);
 
-    const tid = targetTaskId || (State.logList[0]?.task_id || null);
+    const availableIds = State.logList.map(x => x.task_id);
+    const tid = (targetTaskId && availableIds.includes(targetTaskId)) ? targetTaskId : (State.logList[0]?.task_id || null);
     if (tid) {
         await viewLog(tid);
     } else {
@@ -1104,7 +1347,15 @@ async function openLogModalWithTask(targetTaskId) {
     }
 }
 
-window.showInstallLog = (tid) => openLogModalWithTask(tid || State.taskIds.install);
+window.showInstallLog = (tid) => {
+    const currentIp = getVal('ip') || null;
+    const filter = {
+        ...(State.lastInstallFilter?.host_id ? { host_id: State.lastInstallFilter.host_id } : {}),
+        ...(State.lastInstallFilter?.zabbix_url ? { zabbix_url: State.lastInstallFilter.zabbix_url } : {}),
+        ...(currentIp ? { ip: currentIp } : {}),
+    };
+    return openLogModalWithTask(tid || State.taskIds.install, filter);
+};
 window.showBatchLog = (tid) => openLogModalWithTask(tid || (State.taskIds.batch.length ? State.taskIds.batch[0] : null));
 window.showUninstallLog = (tid) => openLogModalWithTask(tid || State.taskIds.uninstall);
 window.closeModal = (id) => { document.getElementById(id).style.display='none'; };
@@ -1116,3 +1367,22 @@ window.toggleDropdown = (id) => {
     if(!show) m.classList.add('show');
 };
 document.addEventListener('click', e => { if(!e.target.closest('.dropdown')) document.querySelectorAll('.dropdown-menu').forEach(x=>x.classList.remove('show')); });
+window.onSaveBatchClick = (btn) => {
+    if (!State.batchRows.length) return showToast('请先添加数据后再保存', 'warning');
+    if (State.currentBatchId) {
+        if (!State.currentBatchName) return showToast('当前批次未命名，请先命名', 'warning');
+        return saveCurrentBatch(btn);
+    }
+    openSaveBatchModal();
+};
+
+function openSaveBatchModal() {
+    const modal = document.getElementById('saveBatchModal');
+    if (!modal) return;
+    setVal('batchNameInput', State.currentBatchName || '');
+    modal.style.display = 'flex';
+    setTimeout(() => {
+        const input = document.getElementById('batchNameInput');
+        if (input) input.focus();
+    }, 0);
+}

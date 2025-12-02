@@ -174,7 +174,7 @@
           <span class="status-badge" id="logCountBadge" style="display:none; font-weight:normal;">0</span>
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
-          <button class="secondary" onclick="loadLogList()">🔄 刷新列表</button>
+          <button class="secondary" onclick="refreshLogList()">🔄 刷新列表</button>
           <button class="secondary" onclick="closeModal('logModal')">❌ 关闭</button>
         </div>
       </header>
@@ -211,8 +211,24 @@
       <div style="display:flex; gap:8px; align-items:center;">
         <input id="selectorSearch" placeholder="输入名称或ID搜索" style="flex:1;" oninput="filterSelectorList()" />
         <button class="secondary" onclick="renderSelectorOptions()">刷新</button>
+        <button class="secondary danger-text" onclick="clearSelectorChoices()">清空选择</button>
       </div>
       <div class="selector-list" id="selectorList" style="min-height:260px;"></div>
+    </div>
+  </div>
+
+  <!-- 保存批次弹窗 -->
+  <div class="modal-backdrop" id="saveBatchModal">
+    <div class="modal" style="max-width:420px;">
+      <header>
+        <span>保存批次</span>
+        <button class="secondary" onclick="closeModal('saveBatchModal')">关闭</button>
+      </header>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <label style="font-weight:600; color:#0f172a;">批次名称</label>
+        <input id="batchNameInput" class="batch-name-input" placeholder="请输入批次名称" />
+        <button onclick="saveCurrentBatch(this)" class="primary-action" style="width:100%;">保存</button>
+      </div>
     </div>
   </div>
 

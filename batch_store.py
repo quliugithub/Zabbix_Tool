@@ -30,8 +30,8 @@ class BatchStore:
             )
             conn.commit()
 
-    def save(self, hosts: List[Dict[str, Any]], name: str | None = None) -> Dict[str, Any]:
-        batch_id = uuid.uuid4().hex
+    def save(self, hosts: List[Dict[str, Any]], name: str | None = None, batch_id: str | None = None) -> Dict[str, Any]:
+        batch_id = batch_id or uuid.uuid4().hex
         ts = int(time.time())
         record = {"hosts": hosts}
         with sqlite3.connect(self.db_path) as conn:
@@ -61,6 +61,21 @@ class BatchStore:
     def get(self, batch_id: str) -> Dict[str, Any] | None:
         with sqlite3.connect(self.db_path) as conn:
             row = conn.execute("SELECT id, ts, name, data FROM batches WHERE id=?", (batch_id,)).fetchone()
+        if not row:
+            return None
+        try:
+            data = json.loads(row[3]) if row[3] else {}
+        except Exception:
+            data = {}
+        data.setdefault("hosts", [])
+        data["batch_id"] = row[0]
+        data["ts"] = row[1]
+        data["name"] = row[2]
+        return data
+
+    def get_by_name(self, name: str) -> Dict[str, Any] | None:
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute("SELECT id, ts, name, data FROM batches WHERE name=?", (name,)).fetchone()
         if not row:
             return None
         try:

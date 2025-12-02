@@ -3,7 +3,7 @@
         <legend>主机信息与配置</legend>
         <div class="grid-2">
           <!-- 基础信息 -->
-          <div><label>主机名（留空则自动读取）</label><input id="host" placeholder="例如：srv-01，留空自动 hostname" /></div>
+          <div><label>主机名（留空则自动读取服务器上hostname,如果hostname是localhost则用ip,）</label><input id="host" placeholder="例如：srv-01，留空自动 hostname" /></div>
           <div><label>IP 地址 <span style="color:red">*</span></label><input id="ip" placeholder="例如：10.0.0.1" /></div>
           <div><label>可见名称 (Visible Name)</label><input id="visible_name" placeholder="Zabbix 显示别名" />
           </div>
@@ -32,44 +32,30 @@
           <!-- 关联信息 -->
           <div>
             <label>关联模板</label>
-            <div class="dropdown">
-              <button type="button" onclick="toggleDropdown('tmplMenu')">选择模板 (可搜索)</button>
-              <div class="dropdown-menu" id="tmplMenu">
-                <input id="tmplFilter" placeholder="搜索模板..." style="margin-bottom:8px;"
-                  oninput="debouncedFilterTemplates()" />
-                <div id="tmplOptions"></div>
-                <button class="secondary" style="width:100%; margin-top:6px;" onclick="clearTemplates()">清空</button>
-              </div>
+            <div class="selector-cell">
+              <div class="tag-chips" id="tmplSelected"></div>
+              <button class="secondary" type="button" onclick="openSelector('tmpl', null, 'install')">选择</button>
+              <button class="secondary danger-text" type="button" onclick="clearTemplates()">清空</button>
             </div>
-            <div id="tmplSelected" class="selected-tags"></div>
           </div>
 
           <div>
             <label>关联群组</label>
-            <div class="dropdown">
-              <button type="button" onclick="toggleDropdown('groupMenu')">选择群组 (可搜索)</button>
-              <div class="dropdown-menu" id="groupMenu">
-                <input id="groupFilter" placeholder="搜索群组..." style="margin-bottom:8px;"
-                  oninput="debouncedFilterGroups()" />
-                <div id="groupOptions"></div>
-                <button class="secondary" style="width:100%; margin-top:6px;" onclick="clearGroups()">清空</button>
-              </div>
+            <div class="selector-cell">
+              <div class="tag-chips" id="groupSelected"></div>
+              <button class="secondary" type="button" onclick="openSelector('grp', null, 'install')">选择</button>
+              <button class="secondary danger-text" type="button" onclick="clearGroups()">清空</button>
             </div>
-            <div id="groupSelected" class="selected-tags"></div>
           </div>
 
           <div>
             <label>关联 Proxy (可选)</label>
-            <div class="dropdown">
-              <button type="button" onclick="toggleDropdown('proxyMenu')">选择 Proxy (可搜索)</button>
-              <div class="dropdown-menu" id="proxyMenu">
-                <input id="proxyFilter" placeholder="搜索 Proxy..." style="margin-bottom:8px;"
-                  oninput="debouncedFilterProxies()" />
-                <div id="proxyOptions"></div>
-                <button class="secondary" style="width:100%; margin-top:6px;" onclick="clearProxy()">清空</button>
-              </div>
+            <div class="selector-cell">
+              <select id="proxySelectInstall" class="table-select" onchange="onSelectProxy(this.value)">
+                <option value="">未选择</option>
+              </select>
+              <button class="secondary danger-text" type="button" onclick="clearProxy()">清空</button>
             </div>
-            <div id="proxySelected" class="selected-tags"></div>
           </div>
         </div>
 

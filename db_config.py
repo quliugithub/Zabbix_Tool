@@ -35,6 +35,8 @@ class ConfigStore:
             "zabbix_version": getattr(self.defaults, "zabbix_version", None),
             "zabbix_server_host": self.defaults.zabbix_server_host,
             "agent_tgz_url": self.defaults.agent_tgz_url,
+            "agent_install_dir": self.defaults.agent_install_dir,
+            "project_name": getattr(self.defaults, "project_name", ""),
             "local_agent_path": None,
         }
         with sqlite3.connect(self.db_path) as conn:

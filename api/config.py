@@ -20,11 +20,10 @@ async def save_config(payload: Dict[str, Any], config_store=Depends(get_config_s
         "zabbix_api_token",
         "zabbix_api_user",
         "zabbix_api_password",
-        "default_template_id",
-        "default_group_id",
+        "agent_install_dir",
+        "project_name",
         "zabbix_version",
         "zabbix_server_host",
-        "agent_tgz_url",
         "local_agent_path",
     }
     data = {k: v for k, v in payload.items() if k in allowed}

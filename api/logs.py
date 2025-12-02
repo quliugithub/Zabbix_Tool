@@ -6,8 +6,8 @@ router = APIRouter(prefix="/api/zabbix", tags=["logs"])
 
 
 @router.get("/logs")
-async def list_logs(limit: int = 10, log_store=Depends(get_log_store)):
-    return ok(log_store.list_recent(limit=limit))
+async def list_logs(limit: int = 10, hostname: str | None = None, ip: str | None = None, host_id: str | None = None, zabbix_url: str | None = None, log_store=Depends(get_log_store)):
+    return ok(log_store.list_recent(limit=limit, hostname=hostname, ip=ip, host_id=host_id, zabbix_url=zabbix_url))
 
 
 @router.get("/logs/{task_id}")

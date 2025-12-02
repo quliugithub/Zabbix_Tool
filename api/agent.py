@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import tempfile
-from typing import Any
+from typing import Any, Dict
 
 from fastapi import APIRouter, UploadFile, File, BackgroundTasks, Body, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 import uuid
 
 from models import InstallRequest, UninstallRequest, BatchInstallRequest, TemplateBindRequest, RegisterRequest
@@ -107,11 +108,37 @@ async def batch_upload(file: UploadFile = File(...), batch_store=Depends(get_bat
     # assign stable ids
     hosts_data = []
     for idx, h in enumerate(hosts):
+        # 将模型转换为纯 dict，并把 IP 等字段转为字符串，避免 JSON 序列化错误
         item = h.dict()
+        if "ip" in item:
+            item["ip"] = str(item["ip"])
         item["item_id"] = idx + 1
         hosts_data.append(item)
     saved = batch_store.save(hosts_data, name=file.filename)
     return ok({"batch_id": saved["batch_id"], "ts": saved["ts"], "hosts": hosts_data, "count": len(hosts_data)})
+
+
+@router.post("/batch/save")
+async def batch_save(payload: dict = Body(...), batch_store=Depends(get_batch_store)):
+    name = (payload.get("name") or "").strip()
+    hosts = payload.get("hosts") or []
+    batch_id = payload.get("batch_id") or None
+
+    if not name:
+        raise HTTPException(status_code=400, detail="batch name required")
+    if not hosts:
+        raise HTTPException(status_code=400, detail="hosts required")
+
+    existing = batch_store.get_by_name(name)
+    if existing and existing.get("batch_id") != batch_id:
+        raise HTTPException(status_code=400, detail="batch name exists")
+
+    for idx, h in enumerate(hosts, 1):
+        if "item_id" not in h:
+            h["item_id"] = idx
+
+    saved = batch_store.save(hosts, name=name, batch_id=batch_id)
+    return ok({"batch_id": saved["batch_id"], "ts": saved["ts"], "name": name, "count": len(hosts), "hosts": hosts})
 
 
 @router.get("/batch/list")
@@ -129,7 +156,7 @@ async def batch_get(batch_id: str, batch_store=Depends(get_batch_store)):
 
 @router.post("/batch/run")
 async def batch_run(
-    payload: Dict[str, Any],
+    payload: Dict[str, Any] = Body(...),
     svc=Depends(get_zabbix_service),
     log_store=Depends(get_log_store),
     batch_store=Depends(get_batch_store),
@@ -189,16 +216,42 @@ async def batch_run(
                 task_id = uuid.uuid4().hex
                 res = svc.install_agent(req, task_id=task_id, log_store=log_store)
                 res["task_id"] = task_id
-            results.append({"item_id": h.get("item_id"), "ip": str(h.get("ip")), "status": "ok", **res})
+            host_id = res.get("host_id")
+            results.append(
+                {
+                    "item_id": h.get("item_id"),
+                    "ip": str(h.get("ip")),
+                    "status": "ok",
+                    **res,
+                    **({"host_id": host_id} if host_id else {}),
+                }
+            )
         except Exception as exc:
             results.append({"item_id": h.get("item_id"), "ip": str(h.get("ip")), "status": "failed", "error": str(exc)})
     return ok({"batch_id": batch_id, "results": results})
 
 
-@router.get("/batch/template")
+@router.get("/batch/template/download")
 async def batch_template():
-    csv = "hostname,ip,ssh_password,ssh_user,ssh_port,os_type,env,port,visible_name,jmx_port\nsrv-web-01,192.168.1.100,Password123,root,22,linux,prod,10050,,10052\n"
-    return ok({"filename": "zabbix_batch_template.csv", "content": csv})
+    """直接下载 Excel 模板文件，避免乱码。"""
+    from openpyxl import Workbook
+    import io
+
+    wb = Workbook()
+    ws = wb.active
+    headers = ["hostname", "ip", "visible_name", "ssh_user", "ssh_password", "ssh_port", "port", "jmx_port"]
+    sample = ["srv-web-01", "192.168.1.100", "", "root", "Password123", 22, 10050, 10052]
+    ws.append(headers)
+    ws.append(sample)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="zabbix_batch_template.xlsx"'},
+    )
 
 
 @router.get("/tasks/{task_id}")

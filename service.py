@@ -36,6 +36,8 @@ class ZabbixService:
 
     # --------------------------- Public APIs --------------------------- #
     def install_agent(self, req: InstallRequest, task_id: str | None = None, log_store=None) -> dict:
+        cfg = self.config_store.get()
+        zabbix_url = cfg.get("zabbix_api_base") or settings.zabbix_api_base
         if req.os_type.lower() != "linux":
             raise HTTPException(status_code=400, detail="Only linux install supported in this version")
         resolved_host = req.hostname
@@ -45,20 +47,13 @@ class ZabbixService:
             except Exception as exc:
                 LOG.warning("auto hostname probe failed for %s: %s", req.ip, exc)
                 resolved_host = str(req.ip)
+        # 如果探测/传入的是 localhost，则回退为 IP
+        if resolved_host and resolved_host.lower() in {"localhost", "localhost.localdomain"}:
+            resolved_host = str(req.ip)
         visible = req.visible_name or resolved_host
         req = req.copy(update={"hostname": resolved_host, "visible_name": visible})
-        steps, rollback, preupload, remote_tmp = self._linux_install_steps(req)
-        log = self._run_steps(
-            req.ip,
-            steps,
-            rollback_script=rollback,
-            ssh_opts=req,
-            preupload_local_path=preupload,
-            remote_tmp=remote_tmp,
-            task_id=task_id,
-            log_store=log_store,
-            hostname=req.hostname,
-        )
+
+        # 先注册/获取 host_id，便于后续日志和过滤
         host_id = None
         if getattr(req, "register_server", True):
             host_id = self._ensure_host(req)
@@ -70,7 +65,27 @@ class ZabbixService:
                     f"host ensured id={host_id}",
                     ip=str(req.ip),
                     hostname=req.hostname,
+                    host_id=host_id,
+                    zabbix_url=zabbix_url,
                 )
+
+        steps, rollback, preupload, remote_tmp = self._linux_install_steps(req)
+        log = self._run_steps(
+            req.ip,
+            steps,
+            rollback_script=rollback,
+            ssh_opts=req,
+            preupload_local_path=preupload,
+            remote_tmp=remote_tmp,
+            task_id=task_id,
+            log_store=log_store,
+            hostname=req.hostname,
+            host_id=host_id,
+            zabbix_url=zabbix_url,
+        )
+
+        if getattr(req, "register_server", True):
+            # 模板绑定 / Web 监控等仍在安装后执行
             if req.template_ids or req.template_id or settings.default_template_id:
                 bind_req = TemplateBindRequest(
                     ip=req.ip,
@@ -87,6 +102,8 @@ class ZabbixService:
                         f"templates bound: {bind_res.get('template_ids')}",
                         ip=str(req.ip),
                         hostname=req.hostname,
+                        host_id=host_id,
+                        zabbix_url=zabbix_url,
                     )
             if getattr(req, "web_monitor_url", None):
                 try:
@@ -99,10 +116,12 @@ class ZabbixService:
                             f"web scenario ensured id={wid} url={req.web_monitor_url}",
                             ip=str(req.ip),
                             hostname=req.hostname,
+                            host_id=host_id,
+                            zabbix_url=zabbix_url,
                         )
                 except Exception as exc:
                     if log_store and task_id:
-                        log_store.add(task_id, "web_monitor", "failed", str(exc), ip=str(req.ip), hostname=req.hostname)
+                        log_store.add(task_id, "web_monitor", "failed", str(exc), ip=str(req.ip), hostname=req.hostname, host_id=host_id, zabbix_url=zabbix_url)
                     raise
         else:
             if log_store and task_id:
@@ -113,10 +132,18 @@ class ZabbixService:
                     "skipped server registration (register_server=false)",
                     ip=str(req.ip),
                     hostname=req.hostname,
+                    host_id=host_id,
+                    zabbix_url=zabbix_url,
                 )
-        return {"host_id": host_id, "ip": str(req.ip), "status": "installed", "log": log}
+        return {"host_id": host_id, "ip": str(req.ip), "status": "installed", "log": log, "hostname": req.hostname, "zabbix_url": zabbix_url}
 
     def uninstall_agent(self, req: UninstallRequest, task_id: str | None = None, log_store=None) -> dict:
+        cfg = self.config_store.get()
+        zabbix_url = cfg.get("zabbix_api_base") or settings.zabbix_api_base
+        host_key = req.hostname or str(req.ip)
+        host = self._get_host(host_key, getattr(req, "proxy_id", None))
+        host_id = host["hostid"] if host else None
+        resolved_hostname = req.hostname or (host.get("host") if host else None)
         log = self._run_steps(
             req.ip,
             self._linux_uninstall_steps(),
@@ -124,14 +151,17 @@ class ZabbixService:
             ssh_opts=req,
             task_id=task_id,
             log_store=log_store,
-            hostname=req.hostname,
+            hostname=resolved_hostname,
+            host_id=host_id,
+            zabbix_url=zabbix_url,
         )
-        host = self._get_host(str(req.ip), getattr(req, "proxy_id", None))
         if host:
             self._zbx("host.delete", [host["hostid"]])
-        return {"ip": str(req.ip), "status": "uninstalled", "log": log}
+        return {"ip": str(req.ip), "status": "uninstalled", "log": log, "host_id": host_id, "hostname": resolved_hostname, "zabbix_url": zabbix_url}
 
     def register_host(self, req, task_id: str | None = None, log_store=None) -> dict:
+        cfg = self.config_store.get()
+        zabbix_url = cfg.get("zabbix_api_base") or settings.zabbix_api_base
         resolved_host = getattr(req, "hostname", None) or str(req.ip)
         req = req.copy(update={"hostname": resolved_host}) if hasattr(req, "copy") else req
         host_id = self._ensure_host(req)
@@ -143,6 +173,8 @@ class ZabbixService:
                 f"host ensured id={host_id}",
                 ip=str(req.ip),
                 hostname=getattr(req, "hostname", None),
+                host_id=host_id,
+                zabbix_url=zabbix_url,
             )
         if getattr(req, "template_ids", None) or getattr(req, "template_id", None) or settings.default_template_id:
             bind_req = TemplateBindRequest(
@@ -160,6 +192,8 @@ class ZabbixService:
                     f"templates bound: {bind_res.get('template_ids')}",
                     ip=str(req.ip),
                     hostname=getattr(req, "hostname", None),
+                    host_id=host_id,
+                    zabbix_url=zabbix_url,
                 )
         if getattr(req, "web_monitor_url", None):
             try:
@@ -172,15 +206,18 @@ class ZabbixService:
                         f"web scenario ensured id={wid} url={req.web_monitor_url}",
                         ip=str(req.ip),
                         hostname=getattr(req, "hostname", None),
+                        host_id=host_id,
+                        zabbix_url=zabbix_url,
                     )
             except Exception as exc:
                 if log_store and task_id:
-                    log_store.add(task_id, "web_monitor", "failed", str(exc), ip=str(req.ip), hostname=getattr(req, "hostname", None))
+                    log_store.add(task_id, "web_monitor", "failed", str(exc), ip=str(req.ip), hostname=getattr(req, "hostname", None), host_id=host_id, zabbix_url=zabbix_url)
                 raise
         return {"host_id": host_id, "ip": str(req.ip), "status": "registered"}
 
     def bind_template(self, req: TemplateBindRequest) -> dict:
-        host = self._get_host(str(req.ip), getattr(req, "proxy_id", None))
+        host_key = getattr(req, "hostname", None) or str(req.ip)
+        host = self._get_host(host_key, getattr(req, "proxy_id", None))
         if not host:
             raise HTTPException(status_code=404, detail="host not found in zabbix")
         templates = host.get("parentTemplates", [])
@@ -299,15 +336,14 @@ class ZabbixService:
         self._auth_cache = data.get("result")
         return self._auth_cache
 
-    def _get_host(self, ip: str, proxy_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def _get_host(self, host: str, proxy_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         res = self._zbx(
             "host.get",
             {
                 "output": ["hostid", "host", "name"],
                 "selectInterfaces": ["interfaceid", "ip", "port", "type"],
                 "selectParentTemplates": ["templateid", "name"],
-                "search": {"ip": ip},
-                "filter": {"host": ip},
+                "filter": {"host": host},
                 **({"proxyids": [proxy_id]} if proxy_id else {}),
             },
         )
@@ -315,8 +351,11 @@ class ZabbixService:
 
     def _ensure_host(self, req: InstallRequest) -> str:
         cfg = self.config_store.get()
-        existing = self._get_host(str(req.ip), getattr(req, "proxy_id", None))
-        host_value = str(req.ip)
+        # Agent 主机名已在 install_agent 解析，这里仅做兜底
+        agent_hostname = req.hostname or str(req.ip)
+
+        existing = self._get_host(agent_hostname, getattr(req, "proxy_id", None))
+        host_value = agent_hostname
         templates = []
         tmpl_ids = []
         if req.template_ids:
@@ -418,6 +457,8 @@ class ZabbixService:
         task_id: str | None = None,
         log_store=None,
         hostname: str | None = None,
+        host_id: str | None = None,
+        zabbix_url: str | None = None,
     ) -> str:
         """Execute steps one by one; on failure, run rollback script."""
         logs: List[str] = []
@@ -426,7 +467,7 @@ class ZabbixService:
         if preupload_local_path:
             self._upload_file(ip, preupload_local_path, remote_tmp, ssh_opts=ssh_opts)
             if log_store and task_id:
-                log_store.add(task_id, "upload", "ok", f"upload {preupload_local_path} -> {remote_tmp}", ip=str(ip), hostname=hostname)
+                log_store.add(task_id, "upload", "ok", f"upload {preupload_local_path} -> {remote_tmp}", ip=str(ip), hostname=hostname, host_id=host_id, zabbix_url=zabbix_url)
         try:
             for step in steps:
                 name = step["name"]
@@ -439,27 +480,27 @@ class ZabbixService:
                         warn_msg = f"{name} ignored: {exc}"
                         logs.append(f"[{name}] {warn_msg}")
                         if log_store and task_id:
-                            log_store.add(task_id, name, "warn", warn_msg, ip=str(ip), hostname=hostname)
+                            log_store.add(task_id, name, "warn", warn_msg, ip=str(ip), hostname=hostname, host_id=host_id, zabbix_url=zabbix_url)
                         continue
                     raise
                 logs.append(f"[{name}] {out.strip()}")
                 if log_store and task_id:
-                    log_store.add(task_id, name, "ok", out.strip(), ip=str(ip), hostname=hostname)
+                    log_store.add(task_id, name, "ok", out.strip(), ip=str(ip), hostname=hostname, host_id=host_id, zabbix_url=zabbix_url)
             return "\n".join(logs)
         except Exception as exc:
             logs.append(f"[{last_step}] failed: {exc}")
             if log_store and task_id:
-                log_store.add(task_id, last_step or "unknown", "failed", str(exc), ip=str(ip), hostname=hostname)
+                log_store.add(task_id, last_step or "unknown", "failed", str(exc), ip=str(ip), hostname=hostname, host_id=host_id, zabbix_url=zabbix_url)
             if rollback_script:
                 try:
                     ro = self._run_ssh(ip, rollback_script, ssh_opts=ssh_opts)
                     logs.append(f"[rollback] {ro.strip()}")
                     if log_store and task_id:
-                        log_store.add(task_id, "rollback", "ok", ro.strip(), ip=str(ip), hostname=hostname)
+                        log_store.add(task_id, "rollback", "ok", ro.strip(), ip=str(ip), hostname=hostname, host_id=host_id, zabbix_url=zabbix_url)
                 except Exception as rex:
                     logs.append(f"[rollback failed] {rex}")
                     if log_store and task_id:
-                        log_store.add(task_id, "rollback", "failed", str(rex), ip=str(ip), hostname=hostname)
+                        log_store.add(task_id, "rollback", "failed", str(rex), ip=str(ip), hostname=hostname, host_id=host_id, zabbix_url=zabbix_url)
             raise HTTPException(status_code=500, detail="\n".join(logs))
 
     def _run_ssh(self, ip, script: str, ssh_opts: Optional[Any] = None) -> str:
@@ -627,9 +668,9 @@ class ZabbixService:
         if not cfg.get("agent_tgz_url") and not cfg.get("local_agent_path") and not settings.agent_tgz_url:
             raise HTTPException(status_code=400, detail="ZABBIX_AGENT_TGZ_URL or local_agent_path not configured")
         server = cfg.get("zabbix_server_host") or settings.zabbix_server_host
-        host = req.hostname
-        host_ip = str(req.ip)
-        install_dir = settings.agent_install_dir.rstrip("/")
+        host = req.hostname or str(req.ip)
+        agent_hostname = host
+        install_dir = (cfg.get("agent_install_dir") or settings.agent_install_dir or "/opt/zabbix-agent/").rstrip("/")
         unit_name = "zabbix-agent.service"
         tgz_url = cfg.get("agent_tgz_url") or settings.agent_tgz_url
         local_path = cfg.get("local_agent_path")
@@ -773,7 +814,7 @@ sudo chmod 644 "$LOG_FILE"
 sudo cat > "$CONF" <<EOFCONF
 Server={server}
 ServerActive={server}
-Hostname={host_ip}
+Hostname={agent_hostname}
 LogFileSize=0
 LogFile=$LOG_FILE
 PidFile=$INSTALL_DIR/zabbix_agent.pid
@@ -785,7 +826,7 @@ echo "config ok -> $CONF"
             },
             {
                 "name": "write_unit",
-                "script": f"""
+                "script": rf"""
 set -e
 INSTALL_DIR={install_dir}
 CONF=$INSTALL_DIR/conf/zabbix_agentd.conf
@@ -861,7 +902,8 @@ echo "service enabled and started: {unit_name}"
         return steps, rollback, preupload, remote_tmp
 
     def _linux_uninstall_script(self) -> str:
-        install_dir = settings.agent_install_dir.rstrip("/")
+        cfg = self.config_store.get()
+        install_dir = (cfg.get("agent_install_dir") or settings.agent_install_dir or "/opt/zabbix-agent/").rstrip("/")
         unit_name = "zabbix-agent.service"
         unit_path = f"/etc/systemd/system/{unit_name}"
         pid_file = f"{install_dir}/zabbix_agent.pid"
@@ -912,7 +954,8 @@ exit 0
         return script
 
     def _linux_uninstall_steps(self) -> List[Dict[str, str]]:
-        install_dir = settings.agent_install_dir.rstrip("/")
+        cfg = self.config_store.get()
+        install_dir = (cfg.get("agent_install_dir") or settings.agent_install_dir or "/opt/zabbix-agent/").rstrip("/")
         unit_name = "zabbix-agent.service"
         unit_path = f"/etc/systemd/system/{unit_name}"
         pid_file = f"{install_dir}/zabbix_agent.pid"

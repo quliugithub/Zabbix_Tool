@@ -16,19 +16,46 @@
 
         <div class="batch-main-panel">
           <div class="batch-action-bar">
-          <input type="file" id="batchFile" accept=".xlsx,.xls,.csv" onchange="handleFileSelect(this)" style="display:none;" />
-          <button class="primary-action" id="importBtn" onclick="triggerBatchImport(this)">数据导入</button>
-          <button class="secondary" onclick="downloadBatchTemplate()">下载模板</button>
-          <button class="secondary" onclick="refreshBatchList()">刷新批次</button>
-          <button class="secondary" id="addDataBtn" onclick="addRowsFromSelection()">添加数据</button>
-          <button class="secondary danger-text" onclick="clearAllBatchRows()">清空全部</button>
-          <button class="secondary danger-text" id="deleteRowsBtn" onclick="deleteSelectedRows()">删除数据</button>
-          <button class="primary-action" onclick="runBatch('install', this)">批量安装</button>
-          <button class="secondary" onclick="runBatch('uninstall', this)">批量卸载</button>
-            <span class="batch-meta-inline">
-              <span id="batchInfo">当前未选择批次</span>
-              <span class="file-status-pill" id="fileStatusBar"><span id="fileNameDisplay"></span></span>
-            </span>
+            <input type="file" id="batchFile" accept=".xlsx,.xls,.csv" onchange="handleFileSelect(this)" style="display:none;" />
+            <div class="batch-row batch-row-top">
+              <div class="row-left">
+                <div class="data-source">
+                  <button class="primary-action" id="importBtn" onclick="triggerBatchImport(this)">数据导入</button>
+                  <div class="v-divider"></div>
+                  <button class="secondary" onclick="downloadBatchTemplate()">下载模板</button>
+                  <button class="secondary" id="addDataBtn" onclick="addRowsFromSelection()">添加数据</button>
+                  <button class="secondary danger-text" id="deleteRowsBtn" onclick="deleteSelectedRows()">删除数据</button>
+                  <button class="secondary danger-text" onclick="clearAllBatchRows()">清空全部</button>
+                </div>
+              </div>
+              <div class="row-right">
+              <div class="view-tools">
+<!--                <button class="secondary" onclick="refreshBatchList()">刷新批次</button>-->
+                <button class="secondary" onclick="onSaveBatchClick(this)">保存批次</button>
+                <button class="secondary" id="toggleHistoryBtn" onclick="toggleHistoryPanel()">隐藏历史</button>
+                <div class="v-divider"></div>
+              </div>
+            </div>
+            </div>
+            <div class="batch-row batch-row-bottom">
+              <div class="row-left">
+                <div class="business-tools">
+                  <button class="primary-action" onclick="runBatch('install', this)">批量安装</button>
+                </div>
+                <div class="v-divider"></div>
+                <div class="apply-tools">
+                  <button class="secondary" onclick="runBatch('uninstall', this)">批量卸载</button>
+
+                  <button class="secondary" id="applyTplBtn" onclick="applyTemplateToSelection()">批量设置模板</button>
+                  <button class="secondary" id="applyGrpBtn" onclick="applyGroupToSelection()">批量设置群组</button>
+                  <button class="secondary" id="applyProxyBtn" onclick="applyProxyToSelection()">批量设置代理</button>
+                </div>
+              </div>
+              <div class="row-right danger-tools">
+                <div class="v-divider"></div>
+                <span class="file-status-pill" id="fileStatusBar"><span id="fileNameDisplay"></span></span>
+              </div>
+            </div>
           </div>
 
         <div class="editable-table-container">
@@ -38,18 +65,19 @@
                 <th style="width:46px;">选</th>
                 <th>主机名</th>
                 <th>IP</th>
+                <th>可见名称</th>
                 <th>SSH用户</th>
                 <th>SSH密码</th>
                 <th>SSH端口</th>
                 <th>Agent端口</th>
                 <th>JMX端口</th>
                 <th>Proxy</th>
-                <th>模板IDs</th>
-                <th>群组IDs</th>
+                <th>模板</th>
+                <th>群组</th>
                 <th>状态</th>
                 <th>日志</th>
-              </tr>
-            </thead>
+            </tr>
+          </thead>
             <tbody></tbody>
           </table>
         </div>
