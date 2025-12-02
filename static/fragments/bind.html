@@ -1,0 +1,19 @@
+<div id="bind" class="tab">
+      <fieldset>
+        <legend>已有主机绑定/解绑模板</legend>
+        <div class="grid-2">
+          <div><label>主机 IP</label><input id="tpl_ip" /></div>
+          <div><label>模板 ID (逗号分隔)</label><input id="tpl_ids" /></div>
+          <div>
+            <label>操作类型</label>
+            <select id="tpl_action">
+              <option value="bind">绑定 (Link)</option>
+              <option value="unbind">解绑 (Unlink)</option>
+            </select>
+          </div>
+        </div>
+        <button onclick="tplAction(this)" style="margin-top:16px;">执行操作</button>
+      </fieldset>
+    </div>
+
+    <!-- 7. 卸载/删除 -->

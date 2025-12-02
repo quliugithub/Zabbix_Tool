@@ -1,0 +1,17 @@
+<div id="tmpl" class="tab">
+      <fieldset>
+        <legend>模板查询</legend>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+          <input id="tmplSearch" placeholder="输入名称或 ID..." style="width: 300px;" oninput="debouncedSearchTmpl()" />
+          <button onclick="loadTemplates(true, this)">🔄 刷新数据</button>
+        </div>
+        <div style="max-height:600px; overflow-y:auto;">
+          <table id="tmplTable" style="display:none;">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </fieldset>
+    </div>
+
+    <!-- 5. 群组列表 -->

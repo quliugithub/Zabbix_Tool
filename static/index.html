@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zabbix Agent 控制台</title>
+  <!-- 引入分离的 CSS 文件 -->
+  <link rel="stylesheet" href="static/css/style.css">
+  <style>
+    /* === 针对新需求的内联样式覆盖 (建议后续移入 style.css) === */
+
+    /* 底部操作区域容器 - 类似 Card Footer */
+    .bottom-action-area {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* 区域标题 */
+    .action-section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* 模式选择网格 - 3列等宽 */
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    /* 单个模式卡片 */
+    .mode-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      /* 左对齐更易读 */
+      justify-content: center;
+      padding: 16px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      height: 100%;
+      /* 确保高度一致 */
+      box-sizing: border-box;
+    }
+
+    .mode-card:hover {
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+      transform: translateY(-2px);
+    }
+
+    /* 选中状态 */
+    .mode-card:has(input:checked) {
+      border-color: var(--primary);
+      background: #eff6ff;
+      /* var(--primary-light) very light */
+      box-shadow: 0 0 0 1px var(--primary);
+    }
+
+    /* 隐藏原生 Radio */
+    .mode-card input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    /* 选中时的对勾图标 */
+    .mode-card:has(input:checked)::after {
+      content: '✔';
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 14px;
+      color: var(--primary);
+      font-weight: bold;
+    }
+
+    /* 卡片主标题 */
+    .mode-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .mode-card:has(input:checked) .mode-title {
+      color: var(--primary);
+    }
+
+    /* 卡片副标题/描述 */
+    .mode-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    .mode-card:has(input:checked) .mode-desc {
+      color: #60a5fa;
+      /* Lighter blue */
+    }
+
+    /* 底部工具栏：右侧按钮 */
+    .action-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      /* 靠右对齐 */
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    /* 按钮组 */
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Toast 容器 -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- 全局初始化 Loading -->
+  <div id="global-loading">
+    <div class="spinner"></div>
+  </div>
+
+  <div class="container">
+    <header class="main-header">
+      <h1>Zabbix Agent 控制台</h1>
+      <span class="status-badge">System Ready</span>
+    </header>
+
+    <div class="tabs">
+      <div class="tab-btn active" data-tab="dashboard">仪表盘</div>
+      <div class="tab-btn" data-tab="install">安装 Agent</div>
+      <div class="tab-btn" data-tab="batch">批量安装</div>
+      <div class="tab-btn" data-tab="tmpl">模板管理</div>
+      <div class="tab-btn" data-tab="group">群组管理</div>
+      <div class="tab-btn" data-tab="bind">模板绑定</div>
+      <div class="tab-btn" data-tab="uninstall">卸载/删除</div>
+      <div class="tab-btn" data-tab="config" style="margin-left: auto;">⚙️ 设置</div>
+    </div>
+
+    <!-- 1. 仪表盘 -->
+        <div id="tabContainer"></div>
+  </div>
+
+<!-- 新版日志弹窗 (Large) -->
+  <div class="modal-backdrop" id="logModal">
+    <div class="modal large">
+      <header>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:18px;">📜 执行日志</span>
+          <span class="status-badge" id="logCountBadge" style="display:none; font-weight:normal;">0</span>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="secondary" onclick="loadLogList()">🔄 刷新列表</button>
+          <button class="secondary" onclick="closeModal('logModal')">❌ 关闭</button>
+        </div>
+      </header>
+      <div class="log-panel">
+        <div class="log-list" id="logList">
+          <!-- JS 填充 -->
+        </div>
+        <div class="log-detail-wrapper">
+          <pre id="logContent">请点击左侧任务查看详细日志...</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 结果详情弹窗 -->
+  <div class="modal-backdrop" id="resultModal">
+    <div class="modal">
+      <header><span>详细信息</span><button class="secondary" onclick="closeModal('resultModal')">关闭</button>
+      </header>
+      <pre id="resultContent"></pre>
+    </div>
+  </div>
+
+  <!-- 模板/群组选取弹窗 -->
+  <div class="modal-backdrop" id="selectorModal">
+    <div class="modal" style="max-width: 720px; display: flex; flex-direction: column; gap: 12px;">
+      <header>
+        <span id="selectorTitle">选择</span>
+        <div style="display:flex; gap:8px;">
+          <button class="secondary" onclick="closeSelector()">取消</button>
+          <button onclick="confirmSelector()">确定</button>
+        </div>
+      </header>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input id="selectorSearch" placeholder="输入名称或ID搜索" style="flex:1;" oninput="filterSelectorList()" />
+        <button class="secondary" onclick="renderSelectorOptions()">刷新</button>
+      </div>
+      <div class="selector-list" id="selectorList" style="min-height:260px;"></div>
+    </div>
+  </div>
+
+  <!-- 引入分离的 JS 文件 -->
+  <script src="static/js/app.js"></script>
+</body>
+
+</html>

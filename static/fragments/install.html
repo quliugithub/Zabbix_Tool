@@ -1,0 +1,115 @@
+<div id="install" class="tab">
+      <fieldset>
+        <legend>主机信息与配置</legend>
+        <div class="grid-2">
+          <!-- 基础信息 -->
+          <div><label>主机名（留空则自动读取）</label><input id="host" placeholder="例如：srv-01，留空自动 hostname" /></div>
+          <div><label>IP 地址 <span style="color:red">*</span></label><input id="ip" placeholder="例如：10.0.0.1" /></div>
+          <div><label>可见名称 (Visible Name)</label><input id="visible_name" placeholder="Zabbix 显示别名" />
+          </div>
+          <div><label>系统类型</label>
+            <select id="os">
+              <option value="linux">Linux</option>
+              <option value="windows">Windows</option>
+            </select>
+          </div>
+          <div><label>SSH 用户</label><input id="ssh_user" placeholder="root" /></div>
+          <div>
+            <label>SSH 密码</label>
+            <div class="input-wrapper">
+              <input id="ssh_password" type="password" />
+              <span class="eye-icon" onclick="togglePassword('ssh_password')">👁️</span>
+            </div>
+          </div>
+          <div><label>SSH 端口</label><input id="ssh_port" value="22" type="number" /></div>
+          <div><label>Agent 端口</label><input id="port" value="10050" type="number" /></div>
+          <div><label>JMX 端口</label><input id="jmx_port" value="10052" type="number" /></div>
+
+          <div><label>Web监控URL (可选)</label><input id="web_url" placeholder="http://example.com/health" />
+          </div>
+
+
+          <!-- 关联信息 -->
+          <div>
+            <label>关联模板</label>
+            <div class="dropdown">
+              <button type="button" onclick="toggleDropdown('tmplMenu')">选择模板 (可搜索)</button>
+              <div class="dropdown-menu" id="tmplMenu">
+                <input id="tmplFilter" placeholder="搜索模板..." style="margin-bottom:8px;"
+                  oninput="debouncedFilterTemplates()" />
+                <div id="tmplOptions"></div>
+                <button class="secondary" style="width:100%; margin-top:6px;" onclick="clearTemplates()">清空</button>
+              </div>
+            </div>
+            <div id="tmplSelected" class="selected-tags"></div>
+          </div>
+
+          <div>
+            <label>关联群组</label>
+            <div class="dropdown">
+              <button type="button" onclick="toggleDropdown('groupMenu')">选择群组 (可搜索)</button>
+              <div class="dropdown-menu" id="groupMenu">
+                <input id="groupFilter" placeholder="搜索群组..." style="margin-bottom:8px;"
+                  oninput="debouncedFilterGroups()" />
+                <div id="groupOptions"></div>
+                <button class="secondary" style="width:100%; margin-top:6px;" onclick="clearGroups()">清空</button>
+              </div>
+            </div>
+            <div id="groupSelected" class="selected-tags"></div>
+          </div>
+
+          <div>
+            <label>关联 Proxy (可选)</label>
+            <div class="dropdown">
+              <button type="button" onclick="toggleDropdown('proxyMenu')">选择 Proxy (可搜索)</button>
+              <div class="dropdown-menu" id="proxyMenu">
+                <input id="proxyFilter" placeholder="搜索 Proxy..." style="margin-bottom:8px;"
+                  oninput="debouncedFilterProxies()" />
+                <div id="proxyOptions"></div>
+                <button class="secondary" style="width:100%; margin-top:6px;" onclick="clearProxy()">清空</button>
+              </div>
+            </div>
+            <div id="proxySelected" class="selected-tags"></div>
+          </div>
+        </div>
+
+        <!-- 底部操作区：执行模式 + 按钮 (重构优化版) -->
+        <div class="bottom-action-area">
+          <div class="action-section-title">
+            🛠️ 任务执行模式
+          </div>
+
+          <!-- 模式选择 Grid -->
+          <div class="mode-grid">
+            <label class="mode-card">
+              <input type="radio" name="install_mode" value="full" checked onchange="onModeChange()">
+              <span class="mode-title">标准安装</span>
+              <span class="mode-desc">部署 Agent 并注册到 Server，全流程自动化。</span>
+            </label>
+
+            <label class="mode-card">
+              <input type="radio" name="install_mode" value="agent_only" onchange="onModeChange()">
+              <span class="mode-title">仅部署软件</span>
+              <span class="mode-desc">只安装 Agent 软件，不进行 Server 注册。</span>
+            </label>
+
+            <label class="mode-card">
+              <input type="radio" name="install_mode" value="register_only" onchange="onModeChange()">
+              <span class="mode-title">仅注册配置</span>
+              <span class="mode-desc">跳过软件安装，仅修改配置并注册主机。</span>
+            </label>
+          </div>
+
+          <!-- 底部工具栏 -->
+          <div class="action-toolbar">
+            <div class="btn-group">
+              <button class="secondary" onclick="showInstallLog()">📜 查看日志</button>
+              <button onclick="install(this)" style="padding:10px 32px; font-weight:600;">🚀 开始执行</button>
+            </div>
+          </div>
+        </div>
+      </fieldset>
+    </div>
+
+      
+<!-- 3. 批量安装 -->

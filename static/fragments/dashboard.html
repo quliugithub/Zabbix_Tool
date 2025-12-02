@@ -1,0 +1,29 @@
+<div id="dashboard" class="tab active">
+      <div class="dashboard-grid">
+        <div class="stat-card">
+          <div class="stat-label">已缓存模板</div>
+          <div class="stat-val" id="stat-tmpl-count">0</div>
+          <button class="secondary" onclick="loadTemplates(true)" style="font-size:11px; padding:4px 8px;">刷新</button>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">已缓存群组</div>
+          <div class="stat-val" id="stat-group-count">0</div>
+          <button class="secondary" onclick="loadGroups(true)" style="font-size:11px; padding:4px 8px;">刷新</button>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">配置状态</div>
+          <div class="stat-val" id="stat-config" style="font-size:16px; line-height:38px;">检测中...</div>
+          <div class="stat-label" style="font-size:11px;">Server 连接性</div>
+        </div>
+      </div>
+      <fieldset>
+        <legend>快速操作</legend>
+        <div style="display:flex; gap:12px;">
+          <button onclick="switchTab('install')">➕ 新增主机</button>
+          <button onclick="switchTab('batch')" class="secondary">📂 批量导入</button>
+          <button onclick="switchTab('config')" class="secondary">⚙️ 修改配置</button>
+        </div>
+      </fieldset>
+    </div>
+
+    <!-- 2. 安装 Agent -->

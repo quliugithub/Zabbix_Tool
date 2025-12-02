@@ -1,0 +1,30 @@
+<div id="config" class="tab">
+      <fieldset>
+        <legend>API 与环境设置</legend>
+        <div class="grid-2">
+          <div>
+            <label>API 地址</label>
+            <input id="cfg_api_base" placeholder="http://192.168.1.100/zabbix/api_jsonrpc.php" />
+          </div>
+          <div><label>Zabbix Server Host</label><input id="cfg_server_host" /></div>
+          <div><label>管理员账号</label><input id="cfg_user" /></div>
+          <div>
+            <label>管理员密码</label>
+            <div class="input-wrapper">
+              <input id="cfg_password" type="password" />
+              <span class="eye-icon" onclick="togglePassword('cfg_password')">👁️</span>
+            </div>
+          </div>
+          <div><label>默认模板ID</label><input id="cfg_default_template" /></div>
+          <div><label>默认群组ID</label><input id="cfg_default_group" /></div>
+          <div><label>Zabbix 版本</label><input id="cfg_version" placeholder="6.4 / 6.0 / 5.0" /></div>
+
+          <div><label>远端 Agent 包 URL (可选)</label><input id="cfg_agent_tgz" /></div>
+          <div><label>本地 Agent 包路径</label><input id="local_agent_path" /></div>
+        </div>
+        <div style="margin-top:20px;">
+          <button onclick="saveConfig(this)">💾 保存配置</button>
+          <button class="secondary" onclick="loadConfig(true)">🔄 重置</button>
+        </div>
+      </fieldset>
+    </div>

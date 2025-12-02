@@ -1,0 +1,43 @@
+<div id="uninstall" class="tab">
+      <fieldset style="border-color:#fca5a5; background:#fef2f2;">
+        <legend style="color:#b91c1c;">⚠️ 危险操作区</legend>
+
+        <div style="margin-bottom:24px;">
+          <h4 style="margin:0 0 8px 0; color:#b91c1c;">Agent 卸载</h4>
+          <div class="grid-2">
+            <div><label>IP 地址</label><input id="un_ip" /></div>
+            <div><label>SSH 用户</label><input id="un_ssh_user" value="root" /></div>
+            <div>
+              <label>SSH 密码</label>
+              <div class="input-wrapper">
+                <input id="un_ssh_password" type="password" />
+                <span class="eye-icon" onclick="togglePassword('un_ssh_password')">👁️</span>
+              </div>
+            </div>
+            <div><label>SSH 端口</label><input id="un_ssh_port" value="22" type="number" /></div>
+          </div>
+          <button class="danger" onclick="uninstall(this)" style="margin-top:12px;">🗑️ 卸载 Agent</button>
+        </div>
+
+        <hr style="border:0; border-top:1px dashed #fca5a5; margin:20px 0;">
+
+        <div class="grid-2">
+          <div>
+            <label>删除模板 (ID)</label>
+            <div style="display:flex; gap:8px;">
+              <input id="del_tpl" placeholder="Template ID" />
+              <button class="danger" onclick="deleteTemplate(this)">删除</button>
+            </div>
+          </div>
+          <div>
+            <label>删除群组 (ID)</label>
+            <div style="display:flex; gap:8px;">
+              <input id="del_group" placeholder="Group ID" />
+              <button class="danger" onclick="deleteGroup(this)">删除</button>
+            </div>
+          </div>
+        </div>
+      </fieldset>
+    </div>
+
+    <!-- 8. 配置 -->

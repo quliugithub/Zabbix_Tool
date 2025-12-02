@@ -1,0 +1,17 @@
+<div id="group" class="tab">
+      <fieldset>
+        <legend>群组查询</legend>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+          <input id="groupSearch" placeholder="输入名称或 ID..." style="width: 300px;" oninput="debouncedSearchGroup()" />
+          <button onclick="loadGroups(true, this)">🔄 刷新数据</button>
+        </div>
+        <div style="max-height:600px; overflow-y:auto;">
+          <table id="groupTable" style="display:none;">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </fieldset>
+    </div>
+
+    <!-- 6. 模板绑定 -->
