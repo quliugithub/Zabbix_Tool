@@ -353,6 +353,12 @@ pre#logContent::-webkit-scrollbar-track { background: #0f172a; }
 .status-ico.ok { color: #16a34a; }
 .status-ico.failed { color: #ef4444; }
 .status-ico.pending { color: #64748b; }
+.status-ico.installing { color: #0ea5e9; animation: spin 1s linear infinite; display: inline-block; transform-origin: center; }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
 .table-select { width: 100%; min-height: 36px; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; background: #fff; }
 .table-select:focus { outline: none; box-shadow: 0 0 0 2px var(--primary-light); }
 .table-select:not(.table-multi) { height: 36px; }

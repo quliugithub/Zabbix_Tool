@@ -10,9 +10,11 @@ import uuid
 from models import InstallRequest, UninstallRequest, BatchInstallRequest, TemplateBindRequest, RegisterRequest
 from excel import parse_excel
 from dependencies import get_zabbix_service, get_tasks, get_upload_dir, get_log_store, get_batch_store
+from settings import get_settings
 from utils.response import ok
 
 router = APIRouter(prefix="/api/zabbix", tags=["agent"])
+settings = get_settings()
 
 
 @router.post("/install")
@@ -178,57 +180,17 @@ async def batch_run(
     hosts = batch.get("hosts", [])
     if host_ids:
         hosts = [h for h in hosts if h.get("item_id") in host_ids or str(h.get("item_id")) in host_ids]
-    results = []
-
-    for h in hosts:
-        try:
-            if action == "uninstall":
-                req = UninstallRequest(
-                    ip=h["ip"],
-                    hostname=h.get("hostname"),
-                    ssh_user=h.get("ssh_user"),
-                    ssh_password=h.get("ssh_password"),
-                    ssh_port=h.get("ssh_port"),
-                    proxy_id=proxy_id or h.get("proxy_id"),
-                )
-                task_id = uuid.uuid4().hex
-                res = svc.uninstall_agent(req, task_id=task_id, log_store=log_store)
-                res["task_id"] = task_id
-            else:
-                req = InstallRequest(
-                    hostname=h.get("hostname"),
-                    ip=h["ip"],
-                    os_type=h.get("os_type") or "linux",
-                    env=h.get("env"),
-                    port=h.get("port") or 10050,
-                    ssh_user=h.get("ssh_user"),
-                    ssh_password=h.get("ssh_password"),
-                    ssh_port=h.get("ssh_port"),
-                    visible_name=h.get("visible_name"),
-                    template_ids=template_ids or h.get("template_ids") or ([h.get("template_id")] if h.get("template_id") else None),
-                    group_ids=group_ids or h.get("group_ids") or ([h.get("group_id")] if h.get("group_id") else None),
-                    proxy_id=proxy_id or h.get("proxy_id"),
-                    register_server=register_server,
-                    precheck=precheck,
-                    web_monitor_url=web_monitor_url,
-                    jmx_port=jmx_port or h.get("jmx_port"),
-                )
-                task_id = uuid.uuid4().hex
-                res = svc.install_agent(req, task_id=task_id, log_store=log_store)
-                res["task_id"] = task_id
-            host_id = res.get("host_id")
-            results.append(
-                {
-                    "item_id": h.get("item_id"),
-                    "ip": str(h.get("ip")),
-                    "status": "ok",
-                    **res,
-                    **({"host_id": host_id} if host_id else {}),
-                }
-            )
-        except Exception as exc:
-            results.append({"item_id": h.get("item_id"), "ip": str(h.get("ip")), "status": "failed", "error": str(exc)})
-    return ok({"batch_id": batch_id, "results": results})
+    q_payload = {
+        "template_ids": template_ids,
+        "group_ids": group_ids,
+        "proxy_id": proxy_id,
+        "register_server": register_server,
+        "precheck": precheck,
+        "web_monitor_url": web_monitor_url,
+        "jmx_port": jmx_port,
+    }
+    queue_id = batch_store.enqueue(batch_id, [str(i) for i in host_ids], action, q_payload)
+    return ok({"queue_id": queue_id, "batch_id": batch_id, "status": "pending"})
 
 
 @router.get("/batch/template/download")
@@ -260,3 +222,11 @@ async def task_status(task_id: str, tasks=Depends(get_tasks)):
     if not task:
         raise HTTPException(status_code=404, detail="task not found")
     return ok(task)
+
+
+@router.get("/batch/queue/{queue_id}")
+async def batch_queue_status(queue_id: str, batch_store=Depends(get_batch_store)):
+    data = batch_store.get_queue(queue_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="queue task not found")
+    return ok(data)

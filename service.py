@@ -56,18 +56,32 @@ class ZabbixService:
         # 先注册/获取 host_id，便于后续日志和过滤
         host_id = None
         if getattr(req, "register_server", True):
-            host_id = self._ensure_host(req)
-            if log_store and task_id:
-                log_store.add(
-                    task_id,
-                    "ensure_host",
-                    "ok",
-                    f"host ensured id={host_id}",
-                    ip=str(req.ip),
-                    hostname=req.hostname,
-                    host_id=host_id,
-                    zabbix_url=zabbix_url,
-                )
+            try:
+                host_id = self._ensure_host(req)
+                if log_store and task_id:
+                    log_store.add(
+                        task_id,
+                        "ensure_host",
+                        "ok",
+                        f"host ensured id={host_id}",
+                        ip=str(req.ip),
+                        hostname=req.hostname,
+                        host_id=host_id,
+                        zabbix_url=zabbix_url,
+                    )
+            except Exception as exc:
+                if log_store and task_id:
+                    log_store.add(
+                        task_id,
+                        "ensure_host",
+                        "failed",
+                        str(exc),
+                        ip=str(req.ip),
+                        hostname=req.hostname,
+                        host_id=None,
+                        zabbix_url=zabbix_url,
+                    )
+                raise
 
         steps, rollback, preupload, remote_tmp = self._linux_install_steps(req)
         log = self._run_steps(
@@ -93,18 +107,32 @@ class ZabbixService:
                     template_ids=req.template_ids,
                     action="bind",
                 )
-                bind_res = self.bind_template(bind_req)
-                if log_store and task_id:
-                    log_store.add(
-                        task_id,
-                        "bind_template",
-                        "ok",
-                        f"templates bound: {bind_res.get('template_ids')}",
-                        ip=str(req.ip),
-                        hostname=req.hostname,
-                        host_id=host_id,
-                        zabbix_url=zabbix_url,
-                    )
+                try:
+                    bind_res = self.bind_template(bind_req)
+                    if log_store and task_id:
+                        log_store.add(
+                            task_id,
+                            "bind_template",
+                            "ok",
+                            f"templates bound: {bind_res.get('template_ids')}",
+                            ip=str(req.ip),
+                            hostname=req.hostname,
+                            host_id=host_id,
+                            zabbix_url=zabbix_url,
+                        )
+                except Exception as exc:
+                    if log_store and task_id:
+                        log_store.add(
+                            task_id,
+                            "bind_template",
+                            "failed",
+                            str(exc),
+                            ip=str(req.ip),
+                            hostname=req.hostname,
+                            host_id=host_id,
+                            zabbix_url=zabbix_url,
+                        )
+                    raise
             if getattr(req, "web_monitor_url", None):
                 try:
                     wid = self._ensure_web_monitor(host_id, str(req.web_monitor_url))
@@ -183,18 +211,32 @@ class ZabbixService:
                 template_ids=getattr(req, "template_ids", None),
                 action="bind",
             )
-            bind_res = self.bind_template(bind_req)
-            if log_store and task_id:
-                log_store.add(
-                    task_id,
-                    "bind_template",
-                    "ok",
-                    f"templates bound: {bind_res.get('template_ids')}",
-                    ip=str(req.ip),
-                    hostname=getattr(req, "hostname", None),
-                    host_id=host_id,
-                    zabbix_url=zabbix_url,
-                )
+            try:
+                bind_res = self.bind_template(bind_req)
+                if log_store and task_id:
+                    log_store.add(
+                        task_id,
+                        "bind_template",
+                        "ok",
+                        f"templates bound: {bind_res.get('template_ids')}",
+                        ip=str(req.ip),
+                        hostname=getattr(req, "hostname", None),
+                        host_id=host_id,
+                        zabbix_url=zabbix_url,
+                    )
+            except Exception as exc:
+                if log_store and task_id:
+                    log_store.add(
+                        task_id,
+                        "bind_template",
+                        "failed",
+                        str(exc),
+                        ip=str(req.ip),
+                        hostname=getattr(req, "hostname", None),
+                        host_id=host_id,
+                        zabbix_url=zabbix_url,
+                    )
+                raise
         if getattr(req, "web_monitor_url", None):
             try:
                 wid = self._ensure_web_monitor(host_id, str(req.web_monitor_url))
@@ -283,14 +325,18 @@ class ZabbixService:
         token = self._ensure_auth(cfg)
         payload = {"jsonrpc": "2.0", "method": method, "params": params, "id": 1, "auth": token}
         url = cfg.get("zabbix_api_base") or settings.zabbix_api_base
+        safe_params = self._safe_log_payload(params)
+        LOG.info("Zabbix API call %s params=%s", method, safe_params)
         try:
             resp = self.client.post(url, json=payload, follow_redirects=True)
             resp.raise_for_status()
         except httpx.RequestError as exc:
+            LOG.exception("Zabbix API request failed (%s): %s", method, exc)
             raise HTTPException(status_code=502, detail=f"Zabbix API request failed: {exc}") from exc
         try:
             data = resp.json()
         except Exception:
+            LOG.exception("Zabbix API returned non-JSON for %s: %s", method, resp.text[:200])
             raise HTTPException(
                 status_code=502,
                 detail=f"Zabbix API returned non-JSON response: {resp.text[:500]}",
@@ -299,7 +345,9 @@ class ZabbixService:
             # reset token on auth error
             if data["error"]["code"] in (-32602, -32500):
                 self._auth_cache = None
+            LOG.error("Zabbix API error %s: %s", method, data["error"])
             raise RuntimeError(f"Zabbix API error {data['error']}")
+        LOG.info("Zabbix API call %s success", method)
         return data.get("result")
 
     _auth_cache: Optional[str] = None
@@ -335,6 +383,22 @@ class ZabbixService:
             raise HTTPException(status_code=401, detail=f"Zabbix login failed: {data['error']}")
         self._auth_cache = data.get("result")
         return self._auth_cache
+
+    def _safe_log_payload(self, params: Any) -> str:
+        """Sanitize sensitive fields before logging to file (no DB write)."""
+        def mask(obj):
+            if isinstance(obj, dict):
+                return {k: ("***" if k.lower() in {"password", "pass", "auth", "user", "zabbix_api_password"} else mask(v)) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [mask(x) for x in obj]
+            return obj
+
+        try:
+            safe = mask(params)
+            text = str(safe)
+            return text if len(text) < 500 else text[:500] + "..."
+        except Exception:
+            return "<unloggable-params>"
 
     def _get_host(self, host: str, proxy_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         res = self._zbx(

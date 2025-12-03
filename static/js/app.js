@@ -25,6 +25,8 @@ State.historyHidden = State.historyHidden || false;
 State.historyFloatPos = State.historyFloatPos || null;
 State.batchResizeBound = false;
 State.lastInstallFilter = null;
+State.batchQueueId = null;
+State.batchQueueTimer = null;
 
 // === 工具函数 ===
 const escapeHtml = (str) => {
@@ -598,10 +600,16 @@ function renderBatchTable() {
         const id = String(row.item_id);
         const checked = State.batchSelection.has(id) ? 'checked' : '';
         const res = State.batchResults[id] || {};
-        const status = res.status || '';
-        const statusColor = status === 'ok' ? '#10b981' : (status === 'failed' ? '#ef4444' : '#64748b');
-        const statusIcon = status === 'ok' ? '✔' : (status === 'failed' ? '✖' : '⏺');
-        const statusClass = status === 'ok' ? 'ok' : (status === 'failed' ? 'failed' : 'pending');
+        const statusRaw = (res.status || '').toLowerCase();
+        const statusClass = (['ok','installed','uninstalled'].includes(statusRaw)) ? 'ok'
+                            : (statusRaw === 'failed' ? 'failed'
+                            : (['installing','running','in-progress'].includes(statusRaw) ? 'installing' : 'pending'));
+        const statusColor = statusClass === 'ok' ? '#10b981'
+                            : (statusClass === 'failed' ? '#ef4444'
+                            : (statusClass === 'installing' ? '#0ea5e9' : '#94a3b8'));
+        const statusIcon = statusClass === 'ok' ? '✔'
+                          : (statusClass === 'failed' ? '✖'
+                          : (statusClass === 'installing' ? '⏳' : '•'));
         
         const proxyOptions = State.proxies.map(p => {
             const pid = String(p.proxyid);
@@ -998,7 +1006,7 @@ window.viewRowLog = async (rowId) => {
     document.getElementById('logModal').style.display='flex';
     document.getElementById('logContent').textContent = '加载任务列表...';
     // 优先按 host_id + zabbix_url 过滤，其次按 IP 过滤，避免主机名重复
-    const filter = { host_id: hostId, ip: row.ip || null, zabbix_url: zabbixUrl };
+    const filter = { host_id: hostId, ip: row.ip || null, zabbix_url: zabbixUrl, task_id: tid };
     State.logFilter = filter;
     await loadLogList(filter);
     if (tid) {
@@ -1113,6 +1121,9 @@ async function loadBatchById(id) {
         State.batchRows = res.data.hosts || [];
         State.batchSelection = new Set(State.batchRows.map(h => String(h.item_id)));
         State.batchResults = {};
+        if (Array.isArray(res.data.results)) {
+            res.data.results.forEach(r => { State.batchResults[String(r.item_id)] = r; });
+        }
         setVal('batchNameInput', State.currentBatchName || '');
         renderBatchTable();
         renderBatchHistoryList(); // 更新选中状态
@@ -1168,13 +1179,21 @@ async function runBatch(action = 'install', btn) {
         // hosts: State.batchRows.filter(r => ids.includes(String(r.item_id)))
     };
 
+    // 标记选中行为“安装中”状态，便于 UI 实时显示（后端亦会写入 installing）
+    ids.forEach(id => {
+        State.batchResults[String(id)] = { ...(State.batchResults[String(id)] || {}), status: 'installing', task_id: null, error: null };
+    });
+    renderBatchTable();
+
     await withLoading(btn, async () => {
         const res = await api('/api/zabbix/batch/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
         if (handleResult(res, '批量任务已提交')) {
-            const results = res.data?.results || [];
-            results.forEach(r => { State.batchResults[String(r.item_id)] = r; });
-            State.taskIds.batch = results.map(r => r.task_id).filter(Boolean);
-            renderBatchTable();
+            const queueId = res.data?.queue_id;
+            if (queueId) {
+                startBatchQueuePolling(queueId);
+            } else {
+                showToast('队列ID缺失，无法跟踪任务', 'warning');
+            }
         }
     });
 }
@@ -1344,6 +1363,43 @@ async function openLogModalWithTask(targetTaskId, filterParams = null) {
         await viewLog(tid);
     } else {
         document.getElementById('logContent').textContent = '暂无历史日志';
+    }
+}
+
+function startBatchQueuePolling(queueId) {
+    State.batchQueueId = queueId;
+    if (State.batchQueueTimer) clearTimeout(State.batchQueueTimer);
+    const poll = async () => {
+        await pollBatchQueue(queueId);
+        if (State.batchQueueId === queueId) {
+            State.batchQueueTimer = setTimeout(poll, 1000);
+        }
+    };
+    poll();
+}
+
+async function pollBatchQueue(queueId) {
+    const res = await api(`/api/zabbix/batch/queue/${queueId}`);
+    if (!res.ok) {
+        showToast(`队列状态获取失败: ${res.msg}`, 'error');
+        State.batchQueueId = null;
+        return;
+    }
+    const data = res.data || {};
+    const results = data.results || [];
+    // 仅在任务完成/失败时应用结果，避免旧结果覆盖前端中的“安装中”状态
+    if (data.status === 'done' || data.status === 'failed') {
+        results.forEach(r => { State.batchResults[String(r.item_id)] = r; });
+        if (Array.isArray(results) && results.length) {
+            State.taskIds.batch = results.map(r => r.task_id).filter(Boolean);
+        }
+    }
+    renderBatchTable();
+    if (data.status === 'done' || data.status === 'failed') {
+        State.batchQueueId = null;
+        if (State.batchQueueTimer) clearTimeout(State.batchQueueTimer);
+        State.batchQueueTimer = null;
+        if (data.status === 'failed' && data.error) showToast(`批量任务失败: ${data.error}`, 'error');
     }
 }
 

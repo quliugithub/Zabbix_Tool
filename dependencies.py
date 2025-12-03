@@ -7,6 +7,7 @@ from service import ZabbixService
 from tasks import TaskStore
 from log_store import LogStore
 from batch_store import BatchStore
+from batch_worker import BatchWorker
 
 SETTINGS = get_settings()
 BASE_DIR = Path(__file__).resolve().parent
@@ -18,6 +19,7 @@ ZABBIX_SERVICE = ZabbixService(config_store=CONFIG_STORE)
 TASKS = TaskStore()
 LOG_STORE = LogStore(BASE_DIR / "logs.db")
 BATCH_STORE = BatchStore(BASE_DIR / "batches.db")
+BATCH_WORKER = BatchWorker(ZABBIX_SERVICE, LOG_STORE, BATCH_STORE)
 
 
 def get_settings_dep():
@@ -46,3 +48,6 @@ def get_log_store():
 
 def get_batch_store():
     return BATCH_STORE
+
+def get_batch_worker():
+    return BATCH_WORKER

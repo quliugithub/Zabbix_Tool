@@ -20,6 +20,7 @@ class Settings(BaseModel):
     agent_install_dir: str = Field(default="/opt/zabbix-agent2", alias="ZABBIX_AGENT_INSTALL_DIR")
     project_name: str = Field(default="", alias="PROJECT_NAME")
     agent_upload_dir: str = Field(default="uploads", alias="ZABBIX_AGENT_UPLOAD_DIR")
+    batch_concurrency: int = Field(default=5, alias="BATCH_CONCURRENCY")
     ssh_user: str = Field(default="root", alias="SSH_USER")
     ssh_password: Optional[str] = Field(default=None, alias="SSH_PASSWORD")
     ssh_key_path: Optional[str] = Field(default=None, alias="SSH_KEY_PATH")
