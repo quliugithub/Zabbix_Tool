@@ -73,6 +73,15 @@ class BatchStore:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_batch_queue_status ON batch_queue(status)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_batch_queue_batch ON batch_queue(batch_id)")
 
+    def has_active_queue(self, batch_id: str) -> bool:
+        with sqlite3.connect(self.db_path) as conn:
+            self._ensure_queue_table(conn)
+            row = conn.execute(
+                "SELECT 1 FROM batch_queue WHERE batch_id=? AND status IN ('pending','running') LIMIT 1",
+                (batch_id,),
+            ).fetchone()
+        return bool(row)
+
 
     def save(self, hosts: List[Dict[str, Any]], name: str | None = None, batch_id: str | None = None) -> Dict[str, Any]:
         batch_id = batch_id or uuid.uuid4().hex
@@ -224,6 +233,8 @@ class BatchStore:
 
     # -------------------- Queue helpers -------------------- #
     def enqueue(self, batch_id: str, host_ids: List[str], action: str, payload: Dict[str, Any]) -> str:
+        if self.has_active_queue(batch_id):
+            raise ValueError("当前批次已有待执行/执行中的任务，请稍候再试")
         qid = uuid.uuid4().hex
         now = int(time.time())
         with sqlite3.connect(self.db_path) as conn:
@@ -291,3 +302,48 @@ class BatchStore:
             "finished": row[9],
             "results": self.get_results(row[1], host_ids=host_ids) if row[1] else [],
         }
+
+    def cancel_queue(self, queue_id: str) -> bool:
+        with sqlite3.connect(self.db_path) as conn:
+            self._ensure_queue_table(conn)
+            cur = conn.execute(
+                "UPDATE batch_queue SET status='cancelled', finished=? WHERE id=? AND status IN ('pending','running')",
+                (int(time.time()), queue_id),
+            )
+            conn.commit()
+            return cur.rowcount > 0
+
+    def is_cancelled(self, queue_id: str) -> bool:
+        with sqlite3.connect(self.db_path) as conn:
+            self._ensure_queue_table(conn)
+            row = conn.execute("SELECT status FROM batch_queue WHERE id=?", (queue_id,)).fetchone()
+        return bool(row and row[0] == "cancelled")
+
+    def list_active(self) -> List[Dict[str, Any]]:
+        with sqlite3.connect(self.db_path) as conn:
+            self._ensure_queue_table(conn)
+            rows = conn.execute(
+                "SELECT id, batch_id, host_ids, action, status, created FROM batch_queue WHERE status IN ('pending','running') ORDER BY created DESC"
+            ).fetchall()
+        res = []
+        for r in rows:
+            res.append(
+                {
+                    "queue_id": r[0],
+                    "batch_id": r[1],
+                    "host_ids": json.loads(r[2]) if r[2] else [],
+                    "action": r[3],
+                    "status": r[4],
+                    "created": r[5],
+                }
+            )
+        return res
+
+    def delete_batch(self, batch_id: str) -> None:
+        with sqlite3.connect(self.db_path) as conn:
+            self._ensure_results_table(conn)
+            self._ensure_queue_table(conn)
+            conn.execute("DELETE FROM batches WHERE id=?", (batch_id,))
+            conn.execute("DELETE FROM batch_results WHERE batch_id=?", (batch_id,))
+            conn.execute("DELETE FROM batch_queue WHERE batch_id=?", (batch_id,))
+            conn.commit()

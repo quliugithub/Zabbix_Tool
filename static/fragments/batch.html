@@ -32,6 +32,9 @@
               <div class="view-tools">
 <!--                <button class="secondary" onclick="refreshBatchList()">刷新批次</button>-->
                 <button class="secondary" onclick="onSaveBatchClick(this)">保存批次</button>
+                <button class="secondary" onclick="refreshCurrentBatch(this)">刷新当前批次</button>
+                <button class="secondary danger-text" onclick="renameBatch(this)">重命名批次</button>
+                <button class="secondary danger-text" onclick="deleteBatch(this)">删除批次</button>
 <!--                <button class="secondary" id="toggleHistoryBtn" onclick="toggleHistoryPanel()">隐藏历史</button>-->
                 <div class="v-divider"></div>
               </div>
@@ -49,6 +52,7 @@
                   <button class="secondary" id="applyTplBtn" onclick="applyTemplateToSelection()">批量设置模板</button>
                   <button class="secondary" id="applyGrpBtn" onclick="applyGroupToSelection()">批量设置群组</button>
                   <button class="secondary" id="applyProxyBtn" onclick="applyProxyToSelection()">批量设置代理</button>
+                  <button class="secondary danger-text" id="cancelQueueBtn" onclick="cancelBatchQueue()">终止任务</button>
                 </div>
               </div>
               <div class="row-right danger-tools">
@@ -71,6 +75,7 @@
                 <th>SSH端口</th>
                 <th>Agent端口</th>
                 <th>JMX端口</th>
+                <th>Web监控URL</th>
                 <th>Proxy</th>
                 <th>模板</th>
                 <th>群组</th>

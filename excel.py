@@ -32,6 +32,7 @@ def parse_excel(path: str, column_map: dict | None = None) -> List[InstallReques
         "template_ids": ["template_ids", "template_id", "模板", "模板id", "模板ids"],
         "group_ids": ["group_ids", "group_id", "群组", "群组id", "组id"],
         "proxy_id": ["proxy_id", "代理", "代理id", "proxy"],
+        "web_monitor_url": ["web_monitor_url", "web监控url", "web监控", "web监控地址", "web url", "web"],
         "note": ["note", "备注"],
     }
     if column_map:

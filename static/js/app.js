@@ -27,6 +27,8 @@ State.batchResizeBound = false;
 State.lastInstallFilter = null;
 State.batchQueueId = null;
 State.batchQueueTimer = null;
+State.batchDirty = false;
+State._unsavedResolve = null;
 
 // === 工具函数 ===
 const escapeHtml = (str) => {
@@ -240,6 +242,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('global-loading').style.display = 'none';
     updateDashboard();
     applyHistoryHidden();
+    // 如果刷新后仍有未完成队列，继续轮询
+    await recoverActiveQueue();
 });
 
 function updateDashboard() {
@@ -639,6 +643,7 @@ function renderBatchTable() {
                 <td><input value="${escapeHtml(row.ssh_port || '')}" oninput="editBatchField('${id}','ssh_port',this.value)" style="width:70px;" /></td>
                 <td><input value="${escapeHtml(row.port || '')}" oninput="editBatchField('${id}','port',this.value)" style="width:70px;" /></td>
                 <td><input value="${escapeHtml(row.jmx_port || '')}" oninput="editBatchField('${id}','jmx_port',this.value)" style="width:70px;" /></td>
+                <td><input value="${escapeHtml(row.web_monitor_url || '')}" placeholder="多值用;分隔" oninput="editBatchField('${id}','web_monitor_url',this.value)" /></td>
                 <td>
                     <select class="table-select" onchange="onProxySelectChange('${id}', this)">
                         <option value="">请选择 Proxy</option>
@@ -743,11 +748,13 @@ window.onProxySelectChange = (rowId, selectEl) => {
     const row = State.batchRows.find(r => String(r.item_id) === String(rowId));
     if (!row) return;
     row.proxy_id = selectEl.value || '';
+    State.batchDirty = true;
 };
 
 function editBatchField(id, field, value) {
     const row = State.batchRows.find(r => String(r.item_id) === String(id));
     if (row) row[field] = value;
+    State.batchDirty = true;
 }
 
 window.toggleHistoryPanel = () => {
@@ -901,6 +908,7 @@ window.addRowsFromSelection = () => {
     const row = createEmptyBatchRow();
     State.batchRows.push(row);
     State.batchSelection.add(String(row.item_id));
+    State.batchDirty = true;
     renderBatchTable();
     showToast('已添加一条空行');
 };
@@ -921,6 +929,7 @@ window.clearAllBatchRows = () => {
     if (bar) bar.classList.remove('show');
     State.currentBatchName = '';
     setVal('batchNameInput', '');
+    State.batchDirty = true;
     renderBatchTable();
     showToast('已清空当前表格数据');
 };
@@ -1076,6 +1085,7 @@ window.confirmSelector = () => {
             }
         });
         closeSelector();
+        State.batchDirty = true;
         renderBatchTable();
     } else {
         const row = State.batchRows.find(r => String(r.item_id) === String(State.selector.rowId));
@@ -1087,6 +1097,7 @@ window.confirmSelector = () => {
             }
         }
         closeSelector();
+        State.batchDirty = true;
         renderBatchTable();
     }
 };
@@ -1127,6 +1138,7 @@ async function loadBatchById(id) {
         setVal('batchNameInput', State.currentBatchName || '');
         renderBatchTable();
         renderBatchHistoryList(); // 更新选中状态
+        State.batchDirty = false;
     } else {
         handleResult(res);
     }
@@ -1137,7 +1149,7 @@ async function runBatch(action = 'install', btn) {
     // 如果没有批次ID，先创建一个临时批次 (对于手动添加的数据)
     // 这里简化逻辑：必须先有数据
     if (!State.batchRows.length) return showToast('请先添加数据', 'error');
-    if (!State.currentBatchId) return showToast('请先保存批次', 'warning');
+    if (State.batchQueueId) return showToast('已有批量任务执行中，请稍后再提交', 'warning');
     
     // 如果是手动添加的数据且没有 currentBatchId，可能需要先保存？
     // 或者直接发送 host_list 给后端。
@@ -1180,6 +1192,8 @@ async function runBatch(action = 'install', btn) {
     };
 
     // 标记选中行为“安装中”状态，便于 UI 实时显示（后端亦会写入 installing）
+    const ready = await ensureBatchReady(btn);
+    if (!ready) return;
     ids.forEach(id => {
         State.batchResults[String(id)] = { ...(State.batchResults[String(id)] || {}), status: 'installing', task_id: null, error: null };
     });
@@ -1218,14 +1232,24 @@ async function uploadBatch(btn) {
             State.batchResults = {};
             renderBatchTable();
             await refreshBatchList();
+            State.batchDirty = false;
         }
     });
+}
+
+async function ensureBatchReady(btn) {
+    if (!State.currentBatchId || State.batchDirty) {
+        const ok = await showUnsavedModal(btn);
+        return !!ok;
+    }
+    return true;
 }
 
 async function saveCurrentBatch(btn) {
     const name = (getVal('batchNameInput') || '').trim();
     if (!name) return showToast('请填写批次名称', 'warning');
     if (!State.batchRows.length) return showToast('请先添加数据后再保存', 'warning');
+    let success = false;
 
     const dup = State.batchList.find(
         b => (b.name || '').trim().toLowerCase() === name.toLowerCase() && String(b.batch_id) !== String(State.currentBatchId || '')
@@ -1246,9 +1270,87 @@ async function saveCurrentBatch(btn) {
             await refreshBatchList();
             renderBatchTable();
             closeModal('saveBatchModal');
+            State.batchDirty = false;
+            success = true;
         }
     });
+    return success;
 }
+
+async function refreshCurrentBatch(btn) {
+    if (!State.currentBatchId) return showToast('请先选择批次', 'warning');
+    if (State.batchDirty) {
+        const ok = confirm('检测到未保存的修改，刷新会丢失这些修改，是否继续？');
+        if (!ok) return;
+    }
+    await withLoading(btn, async () => {
+        await loadBatchById(State.currentBatchId);
+    });
+}
+
+async function renameBatch(btn) {
+    if (!State.currentBatchId) return showToast('请先选择批次', 'warning');
+    if (State.batchDirty) {
+        const ok = await ensureBatchReady(null);
+        if (!ok) return;
+    }
+    const modal = document.getElementById('saveBatchModal');
+    const titleEl = document.getElementById('saveBatchTitle');
+    if (titleEl) titleEl.textContent = '重命名批次';
+    setVal('batchNameInput', State.currentBatchName || '');
+    if (modal) modal.style.display = 'flex';
+    setTimeout(() => {
+        const input = document.getElementById('batchNameInput');
+        if (input) { input.focus(); input.select(); }
+    }, 0);
+}
+
+async function deleteBatch(btn) {
+    if (!State.currentBatchId) return showToast('请先选择批次', 'warning');
+    if (State.batchQueueId) return showToast('当前有执行中的批量任务，请先终止后再删除', 'warning');
+    if (!confirm('确定删除当前批次及其记录吗？')) return;
+    await withLoading(btn, async () => {
+        const res = await api(`/api/zabbix/batch/${State.currentBatchId}`, { method: 'DELETE' });
+        if (!handleResult(res, '批次已删除')) return;
+        State.currentBatchId = null;
+        State.currentBatchName = '';
+        State.batchRows = [];
+        State.batchSelection.clear();
+        State.batchResults = {};
+        State.batchDirty = false;
+        renderBatchTable();
+        await refreshBatchList();
+        setVal('batchNameInput', '');
+        showToast('批次已删除', 'success');
+    });
+}
+
+function showUnsavedModal(btn) {
+    return new Promise(resolve => {
+        State._unsavedResolve = { resolve, btn };
+        const modal = document.getElementById('unsavedModal');
+        if (modal) modal.style.display = 'flex';
+    });
+}
+
+window.closeUnsavedModal = (ok = false) => {
+    const modal = document.getElementById('unsavedModal');
+    if (modal) modal.style.display = 'none';
+    const res = State._unsavedResolve;
+    State._unsavedResolve = null;
+    if (res) res.resolve(ok);
+};
+
+window.confirmUnsavedAndSave = async () => {
+    const ctx = State._unsavedResolve;
+    const btn = ctx?.btn || null;
+    const ok = await saveCurrentBatch(btn);
+    if (ok) {
+        closeUnsavedModal(true);
+    } else {
+        closeUnsavedModal(false);
+    }
+};
 
 // 删除选中的行
 window.deleteSelectedBatchRows = () => {
@@ -1262,6 +1364,7 @@ window.deleteSelectedBatchRows = () => {
         State.batchSelection.delete(id);
         delete State.batchResults[id];
     });
+    State.batchDirty = true;
     renderBatchTable();
 };
 
@@ -1367,7 +1470,11 @@ async function openLogModalWithTask(targetTaskId, filterParams = null) {
 }
 
 function startBatchQueuePolling(queueId) {
+    // 避免重复启动
+    if (State.batchQueueId === queueId) return;
     State.batchQueueId = queueId;
+    localStorage.setItem('batchQueueId', queueId);
+    updateCancelBtn();
     if (State.batchQueueTimer) clearTimeout(State.batchQueueTimer);
     const poll = async () => {
         await pollBatchQueue(queueId);
@@ -1383,23 +1490,73 @@ async function pollBatchQueue(queueId) {
     if (!res.ok) {
         showToast(`队列状态获取失败: ${res.msg}`, 'error');
         State.batchQueueId = null;
+        updateCancelBtn();
+        localStorage.removeItem('batchQueueId');
         return;
     }
     const data = res.data || {};
     const results = data.results || [];
     // 仅在任务完成/失败时应用结果，避免旧结果覆盖前端中的“安装中”状态
-    if (data.status === 'done' || data.status === 'failed') {
+    if (data.status === 'done' || data.status === 'failed' || data.status === 'cancelled') {
         results.forEach(r => { State.batchResults[String(r.item_id)] = r; });
         if (Array.isArray(results) && results.length) {
             State.taskIds.batch = results.map(r => r.task_id).filter(Boolean);
         }
     }
     renderBatchTable();
-    if (data.status === 'done' || data.status === 'failed') {
+    if (data.status === 'done' || data.status === 'failed' || data.status === 'cancelled') {
         State.batchQueueId = null;
         if (State.batchQueueTimer) clearTimeout(State.batchQueueTimer);
         State.batchQueueTimer = null;
         if (data.status === 'failed' && data.error) showToast(`批量任务失败: ${data.error}`, 'error');
+        if (data.status === 'cancelled') {
+            showToast('批量任务已取消', 'warning');
+            // 将安装中的行标记为 failed: cancelled
+            Object.keys(State.batchResults).forEach(id => {
+                const r = State.batchResults[id] || {};
+                if (!r.status || r.status === 'installing') {
+                    State.batchResults[id] = { ...r, status: 'failed', error: 'cancelled' };
+                }
+            });
+            renderBatchTable();
+        }
+    }
+    updateCancelBtn();
+}
+
+async function cancelBatchQueue() {
+    if (!State.batchQueueId) return;
+    if (!confirm('确认终止当前批量任务吗？')) return;
+    const res = await api(`/api/zabbix/batch/queue/${State.batchQueueId}/cancel`, { method: 'POST' });
+    if (res.ok) {
+        showToast('终止指令已发送', 'success');
+        // 立即标记状态为取消，等待轮询刷新结果
+        Object.keys(State.batchResults).forEach(id => {
+            const r = State.batchResults[id] || {};
+            if (r.status === 'installing' || r.status === 'pending' || !r.status) {
+                State.batchResults[id] = { ...r, status: 'failed', error: 'cancelled' };
+            }
+        });
+        renderBatchTable();
+    } else {
+        showToast(`终止失败: ${res.msg}`, 'error');
+    }
+    updateCancelBtn();
+}
+
+function updateCancelBtn() {
+    const btn = document.getElementById('cancelQueueBtn');
+    if (!btn) return;
+    btn.disabled = !State.batchQueueId;
+}
+
+async function recoverActiveQueue() {
+    const res = await api('/api/zabbix/batch/queue/active');
+    if (!res.ok) return;
+    const list = res.data || [];
+    if (list.length) {
+        // 取最近一个 active queue 开始轮询
+        startBatchQueuePolling(list[0].queue_id);
     }
 }
 
@@ -1436,6 +1593,8 @@ function openSaveBatchModal() {
     const modal = document.getElementById('saveBatchModal');
     if (!modal) return;
     setVal('batchNameInput', State.currentBatchName || '');
+    const titleEl = document.getElementById('saveBatchTitle');
+    if (titleEl) titleEl.textContent = '保存批次';
     modal.style.display = 'flex';
     setTimeout(() => {
         const input = document.getElementById('batchNameInput');

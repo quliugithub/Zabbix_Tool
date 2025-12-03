@@ -156,6 +156,12 @@ async def batch_get(batch_id: str, batch_store=Depends(get_batch_store)):
     return ok(data)
 
 
+@router.delete("/batch/{batch_id}")
+async def batch_delete(batch_id: str, batch_store=Depends(get_batch_store)):
+    batch_store.delete_batch(batch_id)
+    return ok({"deleted": True, "batch_id": batch_id})
+
+
 @router.post("/batch/run")
 async def batch_run(
     payload: Dict[str, Any] = Body(...),
@@ -189,7 +195,10 @@ async def batch_run(
         "web_monitor_url": web_monitor_url,
         "jmx_port": jmx_port,
     }
-    queue_id = batch_store.enqueue(batch_id, [str(i) for i in host_ids], action, q_payload)
+    try:
+        queue_id = batch_store.enqueue(batch_id, [str(i) for i in host_ids], action, q_payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     return ok({"queue_id": queue_id, "batch_id": batch_id, "status": "pending"})
 
 
@@ -224,9 +233,22 @@ async def task_status(task_id: str, tasks=Depends(get_tasks)):
     return ok(task)
 
 
+@router.get("/batch/queue/active")
+async def batch_queue_active(batch_store=Depends(get_batch_store)):
+    return ok(batch_store.list_active())
+
+
 @router.get("/batch/queue/{queue_id}")
 async def batch_queue_status(queue_id: str, batch_store=Depends(get_batch_store)):
     data = batch_store.get_queue(queue_id)
     if not data:
         raise HTTPException(status_code=404, detail="queue task not found")
     return ok(data)
+
+
+@router.post("/batch/queue/{queue_id}/cancel")
+async def batch_queue_cancel(queue_id: str, batch_store=Depends(get_batch_store)):
+    ok_cancel = batch_store.cancel_queue(queue_id)
+    if not ok_cancel:
+        raise HTTPException(status_code=400, detail="queue not found or already completed")
+    return ok({"queue_id": queue_id, "status": "cancelled"})

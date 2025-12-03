@@ -221,13 +221,32 @@
   <div class="modal-backdrop" id="saveBatchModal">
     <div class="modal" style="max-width:420px;">
       <header>
-        <span>保存批次</span>
+        <span id="saveBatchTitle">保存批次</span>
         <button class="secondary" onclick="closeModal('saveBatchModal')">关闭</button>
       </header>
       <div style="display:flex; flex-direction:column; gap:12px;">
         <label style="font-weight:600; color:#0f172a;">批次名称</label>
         <input id="batchNameInput" class="batch-name-input" placeholder="请输入批次名称" />
         <button onclick="saveCurrentBatch(this)" class="primary-action" style="width:100%;">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 未保存提示弹窗 -->
+  <div class="modal-backdrop" id="unsavedModal">
+    <div class="modal" style="max-width:460px;">
+      <header>
+        <span>检测到未保存的修改</span>
+        <button class="secondary" onclick="closeUnsavedModal(false)">关闭</button>
+      </header>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <p style="margin:0; color:#475569; line-height:1.6;">
+          当前批次有未保存的变更，是否先保存后再执行？
+        </p>
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+          <button class="secondary" onclick="closeUnsavedModal(false)">稍后再说</button>
+          <button onclick="confirmUnsavedAndSave()">保存并继续</button>
+        </div>
       </div>
     </div>
   </div>
