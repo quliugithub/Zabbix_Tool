@@ -51,6 +51,10 @@ function togglePassword(id) {
 
 const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value.trim() : null;
 const setVal = (id, v) => { if(document.getElementById(id)) document.getElementById(id).value = v || ''; };
+const parseWebUrls = (val) => {
+    if (!val) return [];
+    return val.split(/[\n;,]+/).map(x => x.trim()).filter(Boolean);
+};
 
 // Toast 提示
 function showToast(msg, type = 'success') {
@@ -485,6 +489,8 @@ async function install(btn) {
             template_ids: State.selectedTplIds,
             group_ids: State.selectedGrpIds,
             proxy_id: State.selectedProxyId,
+            web_monitor_urls: parseWebUrls(getVal('web_url')),
+            web_monitor_url: parseWebUrls(getVal('web_url'))[0] || null,
 
             // 控制参数
             precheck: false, // Force disabled
@@ -569,11 +575,105 @@ function renderBatchHistoryList() {
         const count = item.count || (item.hosts?.length ?? 0) || 0;
         const title = item.name?.trim() || '未命名批次';
         const meta = `共 ${count} 台`;
-        return `<div class="history-item ${active}" onclick="loadBatchById('${item.batch_id}')">
-            <div class="history-item-title">${title}</div>
-            <div class="history-item-meta">${meta}</div>
+        const safeTitle = escapeHtml(title);
+        const safeMeta = escapeHtml(meta);
+        return `<div class="history-item ${active}" data-batch-id="${item.batch_id}" onclick="loadBatchById('${item.batch_id}')">
+            <div class="history-item-title" title="双击重命名" onclick="stopHistoryClick(event)" ondblclick="startHistoryRename(event, '${item.batch_id}')">${safeTitle}</div>
+            <div class="history-item-meta">${safeMeta}</div>
         </div>`;
     }).join('');
+}
+
+window.stopHistoryClick = (e) => e.stopPropagation();
+
+window.startHistoryRename = (event, batchId) => {
+    event.stopPropagation();
+    const titleEl = event.currentTarget || event.target;
+    const itemEl = titleEl?.closest('.history-item');
+    if (!itemEl || titleEl.dataset.editing === '1') return;
+
+    const currentName = titleEl.textContent.trim();
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentName;
+    input.className = 'history-rename-input';
+    titleEl.dataset.editing = '1';
+    titleEl.innerHTML = '';
+    titleEl.appendChild(input);
+    input.focus();
+    input.select();
+
+    let finished = false;
+    const restore = (nameToShow) => {
+        titleEl.removeAttribute('data-editing');
+        titleEl.textContent = nameToShow;
+    };
+    const submit = async () => {
+        if (finished) return;
+        finished = true;
+        const newName = (input.value || '').trim();
+        if (!newName || newName === currentName) {
+            restore(currentName);
+            return;
+        }
+        const ok = await renameBatchById(batchId, newName);
+        restore(ok ? newName : currentName);
+    };
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            submit();
+        } else if (e.key === 'Escape') {
+            finished = true;
+            restore(currentName);
+        }
+    });
+    input.addEventListener('blur', submit);
+    input.addEventListener('click', (e) => e.stopPropagation());
+};
+
+async function renameBatchById(batchId, newName) {
+    const name = (newName || '').trim();
+    if (!name) {
+        showToast('批次名称不能为空', 'warning');
+        return false;
+    }
+
+    let hosts = [];
+    if (State.currentBatchId && String(State.currentBatchId) === String(batchId)) {
+        hosts = State.batchRows || [];
+    } else {
+        const res = await api(`/api/zabbix/batch/${batchId}`);
+        if (!res.ok) {
+            handleResult(res);
+            return false;
+        }
+        hosts = res.data?.hosts || [];
+    }
+
+    if (!hosts.length) {
+        showToast('该批次没有可保存的主机数据', 'warning');
+        return false;
+    }
+
+    const payload = { name, batch_id: batchId, hosts };
+    const resSave = await api('/api/zabbix/batch/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    const ok = handleResult(resSave, '批次名称已更新');
+    if (ok) {
+        if (State.currentBatchId && String(State.currentBatchId) === String(batchId)) {
+            State.currentBatchName = name;
+            setVal('batchNameInput', name);
+            updateBatchInfoLabel();
+            State.batchDirty = false;
+        }
+        await refreshBatchList();
+    }
+    return ok;
 }
 
 // 渲染右侧表格
@@ -595,8 +695,15 @@ function renderBatchTable() {
     }
 
     if (!tbody) return;
+    const headerCheckbox = document.getElementById('batchSelectAll');
+    if (headerCheckbox) {
+        const total = State.batchRows.length;
+        const selected = State.batchSelection.size;
+        headerCheckbox.checked = total > 0 && selected === total;
+        headerCheckbox.indeterminate = selected > 0 && selected < total;
+    }
     if (!State.batchRows.length) {
-        tbody.innerHTML = '<tr><td colspan="14" style="text-align:center; color:#94a3b8; padding: 20px;">暂无数据，请导入或添加</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="15" style="text-align:center; color:#94a3b8; padding: 20px;">暂无数据，请导入或添加</td></tr>';
         updateBatchActions();
         return;
     }
@@ -700,6 +807,13 @@ function updateBatchInfoLabel() {
         const name = State.currentBatchName ? `草稿 ${State.currentBatchName}` : '未保存批次';
         infoEl.textContent = count ? `${name} · ${count} 条` : '当前未选择批次';
     }
+}
+
+function setBatchTableLoading(show) {
+    const container = document.querySelector('.editable-table-container');
+    const overlay = document.getElementById('batchTableLoading');
+    if (container) container.classList.toggle('loading', !!show);
+    if (overlay) overlay.style.display = show ? 'flex' : 'none';
 }
 
 function bindBatchNameInput() {
@@ -1183,7 +1297,8 @@ async function runBatch(action = 'install', btn) {
         template_ids: State.selectedTplIds,
         group_ids: State.selectedGrpIds,
         proxy_id: State.selectedProxyId,
-        web_monitor_url: getVal('web_url') || null,
+        web_monitor_urls: parseWebUrls(getVal('web_url')),
+        web_monitor_url: parseWebUrls(getVal('web_url'))[0] || null,
         jmx_port: parseInt(getVal('jmx_port')||10052),
         register_server: registerServer,
         precheck: false,
@@ -1277,15 +1392,46 @@ async function saveCurrentBatch(btn) {
     return success;
 }
 
+window.createNewBatch = () => {
+    const hasData = State.batchRows.length || State.batchDirty || State.currentBatchId;
+    if (hasData) {
+        const ok = confirm('当前批次内容将被清空，确认创建新的空白批次吗？');
+        if (!ok) return;
+    }
+    State.currentBatchId = null;
+    State.currentBatchName = '';
+    State.batchRows = [];
+    State.batchSelection.clear();
+    State.batchResults = {};
+    State.batchDirty = false;
+    setVal('batchNameInput', '');
+    const display = document.getElementById('fileNameDisplay');
+    const bar = document.getElementById('fileStatusBar');
+    if (display) display.textContent = '';
+    if (bar) bar.classList.remove('show');
+    renderBatchTable();
+    updateBatchInfoLabel();
+    showToast('已创建空白批次，请导入或手动添加数据');
+    setTimeout(() => {
+        const input = document.getElementById('batchNameInput');
+        if (input) input.focus();
+    }, 0);
+};
+
 async function refreshCurrentBatch(btn) {
     if (!State.currentBatchId) return showToast('请先选择批次', 'warning');
     if (State.batchDirty) {
         const ok = confirm('检测到未保存的修改，刷新会丢失这些修改，是否继续？');
         if (!ok) return;
     }
-    await withLoading(btn, async () => {
-        await loadBatchById(State.currentBatchId);
-    });
+    setBatchTableLoading(true);
+    try {
+        await withLoading(btn, async () => {
+            await loadBatchById(State.currentBatchId);
+        });
+    } finally {
+        setBatchTableLoading(false);
+    }
 }
 
 async function renameBatch(btn) {
