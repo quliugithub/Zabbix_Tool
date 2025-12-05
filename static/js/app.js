@@ -409,12 +409,20 @@ window.onSelectProxy = (id) => {
 
 const renderTags = (containerId, ids, source, idKey, removeFnName) => {
     const div = document.getElementById(containerId);
-    if (!ids.length) { div.innerHTML = '<span style="color:#94a3b8;">未选择</span>'; return; }
+    if (!div) return;
+    if (!ids.length) {
+        div.innerHTML = '<span class="chip-empty">未选择</span>';
+        const placeholder = div.parentElement?.querySelector('.chip-placeholder');
+        if (placeholder) placeholder.style.display = 'block';
+        return;
+    }
+    const placeholder = div.parentElement?.querySelector('.chip-placeholder');
+    if (placeholder) placeholder.style.display = 'none';
 
     div.innerHTML = ids.map(id => {
         const item = source.find(x => String(x[idKey]) === String(id));
         const name = item ? escapeHtml(item.name || item.host) : id;
-        return `<span class="tag-pill">${name} <button onclick="${removeFnName}('${id}')">×</button></span>`;
+        return `<span class="chip-pill">${name} <button class="chip-remove" onclick="event.stopPropagation(); ${removeFnName}('${id}')">×</button></span>`;
     }).join('');
 };
 
@@ -444,12 +452,16 @@ const renderProxySelected = () => {
     const div = document.getElementById('proxySelected');
     if (!div) return;
     if (!State.selectedProxyId) {
-        div.innerHTML = '<span style="color:#94a3b8;">未选择</span>';
+        div.innerHTML = '<span class="chip-empty">未选择</span>';
+        const placeholder = div.parentElement?.querySelector('.chip-placeholder');
+        if (placeholder) placeholder.style.display = 'block';
         return;
     }
+    const placeholder = div.parentElement?.querySelector('.chip-placeholder');
+    if (placeholder) placeholder.style.display = 'none';
     const p = State.proxies.find(x => String(x.proxyid) === String(State.selectedProxyId));
     const name = p ? escapeHtml(p.name || p.host || State.selectedProxyId) : State.selectedProxyId;
-    div.innerHTML = `<span class="tag-pill">${name} <button onclick="clearProxy()">×</button></span>`;
+    div.innerHTML = `<span class="proxy-chip"><span class="proxy-ico">🌐</span><span>${name}</span><span class="proxy-status ok">已连接</span><button class="chip-remove" onclick="event.stopPropagation(); clearProxy()">×</button></span>`;
 };
 
 // 模式切换联动
@@ -722,12 +734,11 @@ function renderBatchTable() {
                           : (statusClass === 'failed' ? '✖'
                           : (statusClass === 'installing' ? '⏳' : '•'));
         
-        const proxyOptions = State.proxies.map(p => {
-            const pid = String(p.proxyid);
-            const name = escapeHtml(p.name || p.host || pid);
-            const selected = String(row.proxy_id || '') === pid ? 'selected' : '';
-            return `<option value="${pid}" ${selected}>${name}</option>`;
-        }).join('') || '<option value="">暂无 Proxy</option>';
+        const proxyObj = State.proxies.find(p => String(p.proxyid) === String(row.proxy_id));
+        const proxyLabel = proxyObj ? escapeHtml(proxyObj.name || proxyObj.host || proxyObj.proxyid) : (row.proxy_id ? escapeHtml(row.proxy_id) : '');
+        const proxyHtml = proxyLabel
+            ? `<span class="proxy-chip"><span class="proxy-ico">🌐</span><span>${proxyLabel}</span><span class="proxy-status ok">已连接</span></span>`
+            : '<span style="color:#94a3b8;">未选</span>';
 
         const tmplTags = (row.template_ids || []).map(tid => {
             const t = State.templates.find(x => String(x.templateid) === String(tid));
@@ -752,10 +763,10 @@ function renderBatchTable() {
                 <td><input value="${escapeHtml(row.jmx_port || '')}" oninput="editBatchField('${id}','jmx_port',this.value)" style="width:70px;" /></td>
                 <td><input value="${escapeHtml(row.web_monitor_url || '')}" placeholder="多值用;分隔" oninput="editBatchField('${id}','web_monitor_url',this.value)" /></td>
                 <td>
-                    <select class="table-select" onchange="onProxySelectChange('${id}', this)">
-                        <option value="">请选择 Proxy</option>
-                        ${proxyOptions}
-                    </select>
+                    <div class="selector-cell">
+                        <div class="tag-chips">${proxyHtml}</div>
+                        <button class="secondary" onclick="openSelector('proxy','${id}','batch-proxy')">选择</button>
+                    </div>
                 </td>
                 <td>
                     <div class="selector-cell">
@@ -1054,8 +1065,8 @@ function renderSelectorOptions() {
     const listEl = document.getElementById('selectorList');
     if (!listEl || !State.selector.type) return;
     const keyword = (document.getElementById('selectorSearch')?.value || '').toLowerCase();
-    const source = State.selector.type === 'grp' ? State.groups : State.templates;
-    const idKey = State.selector.type === 'grp' ? 'groupid' : 'templateid';
+    const source = State.selector.type === 'grp' ? State.groups : (State.selector.type === 'proxy' ? State.proxies : State.templates);
+    const idKey = State.selector.type === 'grp' ? 'groupid' : (State.selector.type === 'proxy' ? 'proxyid' : 'templateid');
     const filtered = source.filter(item => {
         const name = (item.name || item.host || '').toLowerCase();
         return !keyword || name.includes(keyword) || String(item[idKey]).includes(keyword);
@@ -1068,7 +1079,9 @@ function renderSelectorOptions() {
         const id = String(item[idKey]);
         const name = escapeHtml(item.name || item.host || id);
         const checked = State.selector.temp.has(id) ? 'checked' : '';
-        return `<label class="selector-item"><input type="checkbox" value="${id}" ${checked} onchange="toggleSelectorItem(this)"> <span>${name}</span></label>`;
+        const inputType = State.selector.type === 'proxy' ? 'radio' : 'checkbox';
+        const onChange = State.selector.type === 'proxy' ? 'toggleSelectorItem(this, true)' : 'toggleSelectorItem(this)';
+        return `<label class="selector-item"><input type="${inputType}" name="selector-${State.selector.type}" value="${id}" ${checked} onchange="${onChange}"> <span>${name}</span></label>`;
     }).join('');
 }
 
@@ -1091,12 +1104,21 @@ window.openSelector = (type, rowId, context = 'batch') => {
             const defaults = type === 'grp' ? (firstRow.group_ids || []) : (firstRow.template_ids || []);
             defaults.forEach(id => State.selector.temp.add(String(id)));
         }
+    } else if (context === 'batch-proxy') {
+        const row = State.batchRows.find(r => String(r.item_id) === String(rowId));
+        if (row && row.proxy_id) State.selector.temp.add(String(row.proxy_id));
+    } else if (context === 'batch-proxy-multi') {
+        State.selector.rowIds = Array.from(State.batchSelection);
+        const firstRow = State.batchRows.find(r => State.selector.rowIds.includes(String(r.item_id)));
+        if (firstRow && firstRow.proxy_id) State.selector.temp.add(String(firstRow.proxy_id));
     } else if (context === 'install') {
         const defaults = type === 'grp' ? State.selectedGrpIds : State.selectedTplIds;
         defaults.forEach(id => State.selector.temp.add(String(id)));
+    } else if (context === 'install-proxy') {
+        if (State.selectedProxyId) State.selector.temp.add(String(State.selectedProxyId));
     }
     const titleEl = document.getElementById('selectorTitle');
-    if (titleEl) titleEl.textContent = type === 'grp' ? '选择群组' : '选择模板';
+    if (titleEl) titleEl.textContent = type === 'grp' ? '选择群组' : (type === 'proxy' ? '选择 Proxy' : '选择模板');
     const searchEl = document.getElementById('selectorSearch');
     if (searchEl) searchEl.value = '';
     renderSelectorOptions();
@@ -1104,10 +1126,15 @@ window.openSelector = (type, rowId, context = 'batch') => {
     if (modal) modal.style.display = 'flex';
 };
 
-window.toggleSelectorItem = (el) => {
+window.toggleSelectorItem = (el, single = false) => {
     const id = el.value;
-    if (el.checked) State.selector.temp.add(id);
-    else State.selector.temp.delete(id);
+    if (single) {
+        State.selector.temp = new Set();
+        if (el.checked) State.selector.temp.add(id);
+    } else {
+        if (el.checked) State.selector.temp.add(id);
+        else State.selector.temp.delete(id);
+    }
 };
 
 window.filterSelectorList = () => renderSelectorOptions();
@@ -1164,17 +1191,7 @@ window.applyProxyToSelection = () => {
     const ids = Array.from(State.batchSelection);
     if (!ids.length) return showToast('请先勾选至少一条数据', 'warning');
     if (!State.proxies.length) return showToast('暂无 Proxy 列表', 'warning');
-    const proxyList = State.proxies.map(p => `${p.name || p.host || p.proxyid} (${p.proxyid})`).join('\n');
-    const input = prompt(`请输入要应用的 Proxy ID:\n${proxyList}`, State.proxies[0]?.proxyid || '');
-    if (!input) return;
-    const exists = State.proxies.some(p => String(p.proxyid) === String(input));
-    if (!exists) return showToast('未找到对应 Proxy ID', 'error');
-    State.batchRows.forEach(r => {
-        if (ids.includes(String(r.item_id))) {
-            r.proxy_id = input;
-        }
-    });
-    renderBatchTable();
+    openSelector('proxy', null, 'batch-proxy-multi');
 };
 
 window.confirmSelector = () => {
@@ -1187,6 +1204,11 @@ window.confirmSelector = () => {
             renderTags('tmplSelected', State.selectedTplIds, State.templates, 'templateid', 'removeTpl');
         }
         closeSelector();
+    } else if (State.selector.context === 'install-proxy') {
+        const vals = Array.from(State.selector.temp);
+        State.selectedProxyId = vals[0] || null;
+        renderProxySelected();
+        closeSelector();
     } else if (State.selector.context === 'batch-multi') {
         const ids = State.selector.rowIds || [];
         ids.forEach(rid => {
@@ -1197,6 +1219,24 @@ window.confirmSelector = () => {
             } else {
                 row.template_ids = Array.from(State.selector.temp);
             }
+        });
+        closeSelector();
+        State.batchDirty = true;
+        renderBatchTable();
+    } else if (State.selector.context === 'batch-proxy') {
+        const row = State.batchRows.find(r => String(r.item_id) === String(State.selector.rowId));
+        if (row) {
+            row.proxy_id = Array.from(State.selector.temp)[0] || '';
+        }
+        closeSelector();
+        State.batchDirty = true;
+        renderBatchTable();
+    } else if (State.selector.context === 'batch-proxy-multi') {
+        const val = Array.from(State.selector.temp)[0] || '';
+        const ids = State.selector.rowIds || [];
+        ids.forEach(rid => {
+            const row = State.batchRows.find(r => String(r.item_id) === String(rid));
+            if (row) row.proxy_id = val;
         });
         closeSelector();
         State.batchDirty = true;

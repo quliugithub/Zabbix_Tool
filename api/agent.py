@@ -178,6 +178,7 @@ async def batch_run(
     register_server = payload.get("register_server", True)
     precheck = payload.get("precheck", False)
     web_monitor_url = payload.get("web_monitor_url")
+    web_monitor_urls = payload.get("web_monitor_urls")
     jmx_port = payload.get("jmx_port")
 
     batch = batch_store.get(batch_id) if batch_id else None
@@ -193,6 +194,7 @@ async def batch_run(
         "register_server": register_server,
         "precheck": precheck,
         "web_monitor_url": web_monitor_url,
+        "web_monitor_urls": web_monitor_urls,
         "jmx_port": jmx_port,
     }
     try:

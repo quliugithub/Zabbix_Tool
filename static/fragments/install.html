@@ -3,7 +3,7 @@
         <legend>主机信息与配置</legend>
         <div class="grid-2">
           <!-- 基础信息 -->
-          <div><label>主机名（留空则自动读取服务器上hostname,如果hostname是localhost则用ip,）</label><input id="host" placeholder="例如：srv-01，留空自动 hostname" /></div>
+          <div><label>主机名</label><input id="host" placeholder="留空自动检测hostname，若为localhost则取IP" /></div>
           <div><label>IP 地址 <span style="color:red">*</span></label><input id="ip" placeholder="例如：10.0.0.1" /></div>
           <div><label>可见名称 (Visible Name)</label><input id="visible_name" placeholder="Zabbix 显示别名" />
           </div>
@@ -32,29 +32,25 @@
           <!-- 关联信息 -->
           <div>
             <label>关联模板</label>
-            <div class="selector-cell">
-              <div class="tag-chips" id="tmplSelected"></div>
-              <button class="secondary" type="button" onclick="openSelector('tmpl', null, 'install')">选择</button>
-              <button class="secondary danger-text" type="button" onclick="clearTemplates()">清空</button>
+            <div class="chip-field input-sized" onclick="openSelector('tmpl', null, 'install')">
+              <div class="chip-value" id="tmplSelected"></div>
+              <div class="chip-placeholder">点击选择模板</div>
             </div>
           </div>
 
           <div>
             <label>关联群组</label>
-            <div class="selector-cell">
-              <div class="tag-chips" id="groupSelected"></div>
-              <button class="secondary" type="button" onclick="openSelector('grp', null, 'install')">选择</button>
-              <button class="secondary danger-text" type="button" onclick="clearGroups()">清空</button>
+            <div class="chip-field input-sized" onclick="openSelector('grp', null, 'install')">
+              <div class="chip-value" id="groupSelected"></div>
+              <div class="chip-placeholder">点击选择群组</div>
             </div>
           </div>
 
           <div>
             <label>关联 Proxy (可选)</label>
-            <div class="selector-cell">
-              <select id="proxySelectInstall" class="table-select" onchange="onSelectProxy(this.value)">
-                <option value="">未选择</option>
-              </select>
-              <button class="secondary danger-text" type="button" onclick="clearProxy()">清空</button>
+            <div class="chip-field input-sized" onclick="openSelector('proxy', null, 'install-proxy')">
+              <div class="chip-value" id="proxySelected"></div>
+              <div class="chip-placeholder">点击选择 Proxy</div>
             </div>
           </div>
         </div>

@@ -20,6 +20,7 @@ class InstallRequest(ServerInfo):
     precheck: bool = Field(default=True, description="Run pre-install check for existing agent/service/ports")
     register_server: bool = Field(default=True, description="Create/update host and bind templates in Zabbix server")
     web_monitor_url: Optional[str] = Field(default=None, description="Optional web monitor URL tag")
+    web_monitor_urls: Optional[List[str]] = Field(default=None, description="Optional multiple web monitor URL tags")
     jmx_port: Optional[int] = Field(default=10052, description="JMX port if JMX templates are bound")
     template_ids: Optional[List[str]] = Field(default=None, description="Override: multiple template ids")
     group_ids: Optional[List[str]] = Field(default=None, description="Override: multiple group ids")
@@ -43,6 +44,7 @@ class RegisterRequest(BaseModel):
     group_ids: Optional[List[str]] = None
     proxy_id: Optional[str] = None
     web_monitor_url: Optional[str] = None
+    web_monitor_urls: Optional[List[str]] = None
     jmx_port: Optional[int] = Field(default=10052, description="JMX port if JMX templates are bound")
 
 

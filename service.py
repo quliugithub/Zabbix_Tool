@@ -34,6 +34,39 @@ class ZabbixService:
         self.client = httpx.Client(timeout=20.0, verify=False)
         self.config_store = config_store or ConfigStore(Path("config.db"), defaults=settings)
 
+    def _iter_web_urls(self, req) -> List[str]:
+        """Normalize incoming web monitor URLs (single string, list, or delimited string)."""
+        raw_list = getattr(req, "web_monitor_urls", None)
+        single = getattr(req, "web_monitor_url", None)
+        urls: List[str] = []
+
+        def _add(val):
+            if not val:
+                return
+            if isinstance(val, str):
+                parts = (
+                    val.replace("\n", ";")
+                    .replace(",", ";")
+                    .split(";")
+                )
+                urls.extend([p.strip() for p in parts if p.strip()])
+            elif isinstance(val, (list, tuple, set)):
+                for item in val:
+                    _add(item)
+            else:
+                urls.append(str(val))
+
+        _add(raw_list)
+        _add(single)
+        # 去重但保留顺序
+        deduped: List[str] = []
+        seen = set()
+        for u in urls:
+            if u not in seen:
+                seen.add(u)
+                deduped.append(u)
+        return deduped
+
     # --------------------------- Public APIs --------------------------- #
     def install_agent(self, req: InstallRequest, task_id: str | None = None, log_store=None) -> dict:
         cfg = self.config_store.get()
@@ -133,15 +166,16 @@ class ZabbixService:
                             zabbix_url=zabbix_url,
                         )
                     raise
-            if getattr(req, "web_monitor_url", None):
+            web_urls = self._iter_web_urls(req)
+            for url in web_urls:
                 try:
-                    wid = self._ensure_web_monitor(host_id, str(req.web_monitor_url))
+                    wid = self._ensure_web_monitor(host_id, url)
                     if log_store and task_id:
                         log_store.add(
                             task_id,
                             "web_monitor",
                             "ok",
-                            f"web scenario ensured id={wid} url={req.web_monitor_url}",
+                            f"web scenario ensured id={wid} url={url}",
                             ip=str(req.ip),
                             hostname=req.hostname,
                             host_id=host_id,
@@ -237,15 +271,15 @@ class ZabbixService:
                         zabbix_url=zabbix_url,
                     )
                 raise
-        if getattr(req, "web_monitor_url", None):
+        for url in self._iter_web_urls(req):
             try:
-                wid = self._ensure_web_monitor(host_id, str(req.web_monitor_url))
+                wid = self._ensure_web_monitor(host_id, url)
                 if log_store and task_id:
                     log_store.add(
                         task_id,
                         "web_monitor",
                         "ok",
-                        f"web scenario ensured id={wid} url={req.web_monitor_url}",
+                        f"web scenario ensured id={wid} url={url}",
                         ip=str(req.ip),
                         hostname=getattr(req, "hostname", None),
                         host_id=host_id,
@@ -452,8 +486,8 @@ class ZabbixService:
         tags = []
         if req.env:
             tags.append({"tag": "env", "value": req.env})
-        if getattr(req, "web_monitor_url", None):
-            tags.append({"tag": "web_monitor", "value": str(req.web_monitor_url)})
+        for url in self._iter_web_urls(req):
+            tags.append({"tag": "web_monitor", "value": str(url)})
         if tags:
             base_params["tags"] = tags
 
