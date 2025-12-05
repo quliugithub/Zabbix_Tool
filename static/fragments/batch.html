@@ -46,8 +46,7 @@
                 </div>
                 <div class="v-divider"></div>
                 <div class="apply-tools">
-                  <button class="secondary" onclick="runBatch('uninstall', this)">批量卸载</button>
-
+                  <button class="secondary danger-text" onclick="runBatch('uninstall', this)">批量卸载</button>
                   <button class="secondary" id="applyTplBtn" onclick="applyTemplateToSelection()">批量设置模板</button>
                   <button class="secondary" id="applyGrpBtn" onclick="applyGroupToSelection()">批量设置群组</button>
                   <button class="secondary" id="applyProxyBtn" onclick="applyProxyToSelection()">批量设置代理</button>
@@ -60,6 +59,13 @@
               </div>
             </div>
           </div>
+
+        <div class="batch-mode-group">
+          <span class="mode-label">执行模式：</span>
+          <label><input type="radio" name="batch_install_mode" value="full" checked> 标准</label>
+          <label><input type="radio" name="batch_install_mode" value="agent_only"> 部署</label>
+          <label><input type="radio" name="batch_install_mode" value="register_only"> 注册</label>
+        </div>
 
         <div class="editable-table-container">
           <table id="batchTable" class="editable-table">

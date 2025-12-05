@@ -1,10 +1,10 @@
 <div id="install" class="tab">
       <fieldset>
         <legend>主机信息与配置</legend>
-        <div class="grid-2">
+        <div class="grid-2 install-grid">
           <!-- 基础信息 -->
           <div><label>主机名</label><input id="host" placeholder="留空自动检测hostname，若为localhost则取IP" /></div>
-          <div><label>IP 地址 <span style="color:red">*</span></label><input id="ip" placeholder="例如：10.0.0.1" /></div>
+          <div><label>IP 地址 <span style="color:red">*</span></label><input id="ip" placeholder="例如：10.0.0.1" required /></div>
           <div><label>可见名称 (Visible Name)</label><input id="visible_name" placeholder="Zabbix 显示别名" />
           </div>
           <div><label>系统类型</label>
@@ -13,11 +13,11 @@
               <option value="windows">Windows</option>
             </select>
           </div>
-          <div><label>SSH 用户</label><input id="ssh_user" placeholder="root" /></div>
+          <div><label>SSH 用户 <span style="color:red">*</span></label><input id="ssh_user" placeholder="root" required /></div>
           <div>
-            <label>SSH 密码</label>
+            <label>SSH 密码 <span style="color:red">*</span></label>
             <div class="input-wrapper">
-              <input id="ssh_password" type="password" />
+              <input id="ssh_password" type="password" required />
               <span class="eye-icon" onclick="togglePassword('ssh_password')">👁️</span>
             </div>
           </div>
@@ -86,7 +86,8 @@
           <div class="action-toolbar">
             <div class="btn-group">
               <button class="secondary" onclick="showInstallLog()">📜 查看日志</button>
-              <button onclick="install(this)" style="padding:10px 32px; font-weight:600;">🚀 开始执行</button>
+              <button onclick="install(this)" style="padding:10px 32px; font-weight:600;">🚀 开始安装</button>
+              <button class="secondary danger-text" onclick="uninstall(this)" style="padding:10px 24px;">🗑️ 开始卸载</button>
             </div>
           </div>
         </div>

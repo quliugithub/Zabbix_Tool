@@ -222,7 +222,7 @@ async function refreshLogList() {
 async function loadFragments() {
     const container = document.getElementById('tabContainer');
     if (!container) return;
-    const files = ['dashboard','install','batch','tmpl','group','bind','uninstall','config'];
+    const files = ['dashboard','install','batch','tmpl','group','bind','config'];
     for (const name of files) {
         try {
             const res = await fetch(`static/fragments/${name}.html`);
@@ -527,11 +527,17 @@ async function install(btn) {
 }
 
 async function uninstall(btn) {
+    const ip = getVal('ip');
+    if (!ip) return showToast('请先填写 IP 地址', 'error');
     if (!confirm("⚠️ 警告：确定要卸载该主机的 Agent 吗？此操作不可恢复！")) return;
     await withLoading(btn, async () => {
         const payload = {
-            ip: getVal('un_ip'), ssh_user: getVal('un_ssh_user'),
-            ssh_password: getVal('un_ssh_password'), ssh_port: parseInt(getVal('un_ssh_port')||22)
+            ip,
+            hostname: getVal('host') || null,
+            proxy_id: State.selectedProxyId,
+            ssh_user: getVal('ssh_user'),
+            ssh_password: getVal('ssh_password'),
+            ssh_port: parseInt(getVal('ssh_port')||22),
         };
         const res = await api('/api/zabbix/uninstall', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
         handleResult(res);
@@ -1325,9 +1331,13 @@ async function runBatch(action = 'install', btn) {
     const ids = Array.from(State.batchSelection);
     if (!ids.length) return showToast('请先勾选要执行的主机', 'error');
 
-    const mode = document.querySelector('input[name="install_mode"]:checked')?.value || 'full';
+    const mode = document.querySelector('input[name="batch_install_mode"]:checked')?.value
+        || document.querySelector('input[name="install_mode"]:checked')?.value
+        || 'full';
     let registerServer = true;
+    let registerOnly = false;
     if (mode === 'agent_only') registerServer = false;
+    if (mode === 'register_only') { registerServer = true; registerOnly = true; }
 
     // 构造 payload
     const payload = {
@@ -1341,6 +1351,7 @@ async function runBatch(action = 'install', btn) {
         web_monitor_url: parseWebUrls(getVal('web_url'))[0] || null,
         jmx_port: parseInt(getVal('jmx_port')||10052),
         register_server: registerServer,
+        register_only: registerOnly,
         precheck: false,
         // 如果后端支持直接传 hosts 数据，可以在这里扩展
         // hosts: State.batchRows.filter(r => ids.includes(String(r.item_id)))
