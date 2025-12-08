@@ -214,18 +214,20 @@ async def batch_template():
 
     wb = Workbook()
     ws = wb.active
-    headers = ["hostname", "ip", "visible_name", "ssh_user", "ssh_password", "ssh_port", "port", "jmx_port"]
-    sample = ["srv-web-01", "192.168.1.100", "", "root", "Password123", 22, 10050, 10052]
+    headers = ["主机名", "IP", "可见名称", "SSH用户", "SSH密码", "SSH端口", "Agent端口", "JMX端口", "Web监控URL"]
+    sample = ["srv-web-01", "192.168.1.100", "", "root", "Password123", 22, 10050, 10052, "http://example.com/health", "", "", "", ""]
     ws.append(headers)
     ws.append(sample)
 
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
+    from datetime import datetime
+    ts = datetime.now().strftime("%Y%m%d%H%M%S")
     return StreamingResponse(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": 'attachment; filename="zabbix_batch_template.xlsx"'},
+        headers={"Content-Disposition": f'attachment; filename="zabbix_batch_template_{ts}.xlsx"'},
     )
 
 

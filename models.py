@@ -63,8 +63,10 @@ class UninstallRequest(BaseModel):
 
 class TemplateBindRequest(BaseModel):
     ip: IPvAnyAddress
+    hostname: Optional[str] = None
     template_id: Optional[str] = None
     template_ids: Optional[List[str]] = None
+    proxy_id: Optional[str] = None
     action: str = Field(..., pattern="^(bind|unbind)$")
     jmx_port: Optional[int] = Field(default=10052, description="JMX port used when binding JMX templates")
 

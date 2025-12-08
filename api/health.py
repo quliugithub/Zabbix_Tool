@@ -1,16 +1,27 @@
 from pathlib import Path
-from fastapi import APIRouter
+import os
+from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 
 from utils.response import ok
 from dependencies import BASE_DIR
+from settings import get_settings
 
 router = APIRouter()
+settings = get_settings()
 
 
 @router.get("/health")
 async def health():
     return ok({"status": "ok"})
+
+
+@router.post("/shutdown")
+async def shutdown(x_token: str = Header(default="")):
+    if x_token != settings.shutdown_token:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    # 立即退出进程
+    os._exit(0)
 
 
 @router.get("/")

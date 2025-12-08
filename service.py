@@ -77,8 +77,30 @@ class ZabbixService:
         if not resolved_host:
             try:
                 resolved_host = self._probe_hostname(req)
+                if log_store and task_id:
+                    log_store.add(
+                        task_id,
+                        "从服务器获取hostname",
+                        "ok",
+                        f"hostname detected: {resolved_host}",
+                        ip=str(req.ip),
+                        hostname=req.hostname,
+                        host_id=None,
+                        zabbix_url=zabbix_url,
+                    )
             except Exception as exc:
                 LOG.warning("auto hostname probe failed for %s: %s", req.ip, exc)
+                if log_store and task_id:
+                    log_store.add(
+                        task_id,
+                        "从服务器获取hostname",
+                        "failed",
+                        str(exc),
+                        ip=str(req.ip),
+                        hostname=req.hostname,
+                        host_id=None,
+                        zabbix_url=zabbix_url,
+                    )
                 resolved_host = str(req.ip)
         if resolved_host and resolved_host.lower() in {"localhost", "localhost.localdomain"}:
             resolved_host = str(req.ip)
@@ -93,7 +115,7 @@ class ZabbixService:
                 if log_store and task_id:
                     log_store.add(
                         task_id,
-                        "ensure_host",
+                        "注册主机",
                         "failed",
                         str(exc),
                         ip=str(req.ip),
@@ -119,12 +141,14 @@ class ZabbixService:
         )
 
         if getattr(req, "register_server", True):
-            # 妯℃澘缁戝畾 / Web 鐩戞帶绛変粛鍦ㄥ畨瑁呭悗鎵ц
+            #
             if req.template_ids or req.template_id or settings.default_template_id:
                 bind_req = TemplateBindRequest(
                     ip=req.ip,
+                    hostname=req.hostname,
                     template_id=req.template_id,
                     template_ids=req.template_ids,
+                    proxy_id=getattr(req, "proxy_id", None),
                     jmx_port=getattr(req, "jmx_port", None),
                     action="bind",
                 )
@@ -133,7 +157,7 @@ class ZabbixService:
                     if log_store and task_id:
                         log_store.add(
                             task_id,
-                            "bind_template",
+                            "绑定模板",
                             "ok",
                             f"templates bound: {bind_res.get('template_ids')}",
                             ip=str(req.ip),
@@ -145,7 +169,7 @@ class ZabbixService:
                     if log_store and task_id:
                         log_store.add(
                             task_id,
-                            "bind_template",
+                            "绑定模板",
                             "failed",
                             str(exc),
                             ip=str(req.ip),
@@ -161,7 +185,7 @@ class ZabbixService:
                     if log_store and task_id:
                         log_store.add(
                             task_id,
-                            "web_monitor",
+                            "添加web监控",
                             "ok",
                             f"web scenario ensured id={wid} url={url}",
                             ip=str(req.ip),
@@ -171,13 +195,13 @@ class ZabbixService:
                         )
                 except Exception as exc:
                     if log_store and task_id:
-                        log_store.add(task_id, "web_monitor", "failed", str(exc), ip=str(req.ip), hostname=req.hostname, host_id=host_id, zabbix_url=zabbix_url)
+                        log_store.add(task_id, "添加web监控", "failed", str(exc), ip=str(req.ip), hostname=req.hostname, host_id=host_id, zabbix_url=zabbix_url)
                     raise
         else:
             if log_store and task_id:
                 log_store.add(
                     task_id,
-                    "ensure_host",
+                    "注册主机",
                     "warn",
                     "skipped server registration (register_server=false)",
                     ip=str(req.ip),
@@ -219,8 +243,10 @@ class ZabbixService:
         if getattr(req, "template_ids", None) or getattr(req, "template_id", None) or settings.default_template_id:
             bind_req = TemplateBindRequest(
                 ip=req.ip,
+                hostname=getattr(req, "hostname", None),
                 template_id=getattr(req, "template_id", None),
                 template_ids=getattr(req, "template_ids", None),
+                proxy_id=getattr(req, "proxy_id", None),
                 jmx_port=getattr(req, "jmx_port", None),
                 action="bind",
             )
@@ -229,7 +255,7 @@ class ZabbixService:
                 if log_store and task_id:
                     log_store.add(
                         task_id,
-                        "bind_template",
+                        "绑定模板",
                         "ok",
                         f"templates bound: {bind_res.get('template_ids')}",
                         ip=str(req.ip),
@@ -241,7 +267,7 @@ class ZabbixService:
                 if log_store and task_id:
                     log_store.add(
                         task_id,
-                        "bind_template",
+                        "绑定模板",
                         "failed",
                         str(exc),
                         ip=str(req.ip),
@@ -256,7 +282,7 @@ class ZabbixService:
                 if log_store and task_id:
                     log_store.add(
                         task_id,
-                        "web_monitor",
+                        "web监控添加",
                         "ok",
                         f"web scenario ensured id={wid} url={url}",
                         ip=str(req.ip),
@@ -266,7 +292,7 @@ class ZabbixService:
                     )
             except Exception as exc:
                 if log_store and task_id:
-                    log_store.add(task_id, "web_monitor", "failed", str(exc), ip=str(req.ip), hostname=getattr(req, "hostname", None), host_id=host_id, zabbix_url=zabbix_url)
+                    log_store.add(task_id, "web监控添加", "failed", str(exc), ip=str(req.ip), hostname=getattr(req, "hostname", None), host_id=host_id, zabbix_url=zabbix_url)
                 raise
         return {"host_id": host_id, "ip": str(req.ip), "status": "registered"}
 
@@ -447,7 +473,7 @@ class ZabbixService:
 
     def _ensure_host(self, req: InstallRequest, task_id: str | None = None, log_store=None, zabbix_url: str | None = None) -> str:
         cfg = self.config_store.get()
-        # Agent 涓绘満鍚嶅凡鍦?install_agent 瑙ｆ瀽锛岃繖閲屼粎鍋氬厹搴?
+        # Agent
         agent_hostname = req.hostname or str(req.ip)
 
         existing = self._get_host(agent_hostname, getattr(req, "proxy_id", None))
@@ -539,7 +565,7 @@ class ZabbixService:
             if log_store and task_id:
                 log_store.add(
                     task_id,
-                    "ensure_host",
+                    "更新注册信息",
                     "ok",
                     f"host ensured id={host_id}; groups={grp_ids}; templates={tmpl_ids}; proxy={getattr(req, 'proxy_id', None) or '-'}",
                     ip=str(req.ip),
@@ -556,7 +582,7 @@ class ZabbixService:
         if log_store and task_id:
             log_store.add(
                 task_id,
-                "ensure_host",
+                "注册主机",
                 "ok",
                 f"host created id={host_id}; groups={grp_ids}; templates={tmpl_ids}; proxy={getattr(req, 'proxy_id', None) or '-'}",
                 ip=str(req.ip),
@@ -588,9 +614,14 @@ class ZabbixService:
         base_tolerant = {"pre_cleanup", "precheck"}
         tolerant = base_tolerant | set(tolerant_steps or set())
         if preupload_local_path:
-            self._upload_file(ip, preupload_local_path, remote_tmp, ssh_opts=ssh_opts)
-            if log_store and task_id:
-                log_store.add(task_id, "upload", "ok", f"upload {preupload_local_path} -> {remote_tmp}", ip=str(ip), hostname=hostname, host_id=host_id, zabbix_url=zabbix_url)
+            try:
+                self._upload_file(ip, preupload_local_path, remote_tmp, ssh_opts=ssh_opts)
+                if log_store and task_id:
+                    log_store.add(task_id, "上传agent安装文件", "ok", f"upload {preupload_local_path} -> {remote_tmp}", ip=str(ip), hostname=hostname, host_id=host_id, zabbix_url=zabbix_url)
+            except Exception as exc:
+                logs.append(f"[{last_step}] failed: {exc}")
+                if log_store and task_id:
+                    log_store.add(task_id, "上传agent安装文件", "failed",str(exc), ip=str(ip), hostname=hostname, host_id=host_id, zabbix_url=zabbix_url)
         try:
             for step in steps:
                 name = step["name"]
@@ -646,10 +677,10 @@ class ZabbixService:
             )
         except paramiko.ssh_exception.AuthenticationException as exc:
             ssh.close()
-            raise HTTPException(status_code=401, detail=f"SSH 璁よ瘉澶辫触: {exc}") from exc
+            raise HTTPException(status_code=401, detail=f"SSH 认证失败: {exc}") from exc
         except Exception as exc:
             ssh.close()
-            raise HTTPException(status_code=500, detail=f"SSH 杩炴帴澶辫触: {exc}") from exc
+            raise HTTPException(status_code=500, detail=f"SSH 认证失败: {exc}") from exc
         cmd = f"bash -s <<'EOF'\n{script}\nEOF"
         stdin, stdout, stderr = ssh.exec_command(cmd)
         out = stdout.read().decode()
@@ -758,10 +789,10 @@ class ZabbixService:
             )
         except paramiko.ssh_exception.AuthenticationException as exc:
             ssh.close()
-            raise HTTPException(status_code=401, detail=f"SFTP 璁よ瘉澶辫触: {exc}") from exc
+            raise HTTPException(status_code=401, detail=f"SFTP 服务器认证失败: {exc}") from exc
         except Exception as exc:
             ssh.close()
-            raise HTTPException(status_code=500, detail=f"SFTP 杩炴帴澶辫触: {exc}") from exc
+            raise HTTPException(status_code=500, detail=f"SFTP 服务器认证失败: {exc}") from exc
         try:
             sftp = ssh.open_sftp()
             sftp.put(local_path, remote_path)
@@ -802,7 +833,7 @@ class ZabbixService:
 
         steps: List[Dict[str, str]] = [
             {
-                "name": "precheck",
+                "name": "检查agent是否运行",
                 "script": f"""
 set +e
 INSTALL_DIR={install_dir}
@@ -845,7 +876,7 @@ exit 0
 """,
             } if getattr(req, "precheck", True) else None,
             {
-                "name": "pre_cleanup",
+                "name": "预清理agent相关文件",
                 "script": f"""
 set +e
 INSTALL_DIR={install_dir}
@@ -895,7 +926,7 @@ exit 0
 """,
             },
             {
-                "name": "download",
+                "name": "下载agent安装文件",
                 "script": f"""
 set -e
 umask 022
@@ -912,7 +943,7 @@ fi
 """,
             },
             {
-                "name": "extract",
+                "name": "解压agent配置文件",
                 "script": f"""
 set -e
 TMP_TGZ={remote_tmp}
@@ -923,7 +954,7 @@ echo "extract ok -> $INSTALL_DIR"
 """,
             },
             {
-                "name": "write_config",
+                "name": "agent配置文件写入",
                 "script": f"""
 set -e
 INSTALL_DIR={install_dir}
@@ -948,7 +979,7 @@ echo "config ok -> $CONF"
 """,
             },
             {
-                "name": "write_unit",
+                "name": "system启动方式注册",
                 "script": rf"""
 set -e
 INSTALL_DIR={install_dir}
@@ -1010,7 +1041,7 @@ echo "unit written -> $UNIT (bin=$BIN)"
 """,
             },
             {
-                "name": "enable_service",
+                "name": "开启agent服务",
                 "script": f"""
 set -e
 sudo systemctl daemon-reload

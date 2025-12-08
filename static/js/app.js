@@ -7,6 +7,7 @@ const State = {
     selectedTplIds: [],
     selectedGrpIds: [],
     selectedProxyId: null,
+    systemReady: true,
     config: {},
     taskIds: { install: null, batch: [], uninstall: null },
     logList: [],
@@ -54,6 +55,20 @@ const setVal = (id, v) => { if(document.getElementById(id)) document.getElementB
 const parseWebUrls = (val) => {
     if (!val) return [];
     return val.split(/[\n;,]+/).map(x => x.trim()).filter(Boolean);
+};
+const setSystemStatus = (ready) => {
+    const badge = document.querySelector('.status-badge');
+    if (!badge) return;
+    State.systemReady = !!ready;
+    if (ready) {
+        badge.textContent = 'System Ready';
+        badge.classList.remove('danger');
+        badge.classList.add('ok');
+    } else {
+        badge.textContent = 'System NoReady';
+        badge.classList.remove('ok');
+        badge.classList.add('danger');
+    }
 };
 
 // Toast 提示
@@ -257,12 +272,14 @@ function updateDashboard() {
     const statusEl = document.getElementById('stat-config');
     statusEl.textContent = hasApi ? '已配置' : '未配置';
     statusEl.style.color = hasApi ? '#10b981' : '#f59e0b';
+    setSystemStatus(hasApi && State.systemReady);
 }
 
 // 2. 加载配置
 async function loadConfig(isManual = false) {
     const res = await api('/api/zabbix/config');
     if (!res.ok) {
+        setSystemStatus(false);
         if (isManual || res.msg.includes('失败')) handleResult(res);
         return;
     }
@@ -303,14 +320,45 @@ async function saveConfig(btn) {
     });
 }
 
+// 测试 Zabbix API 连通性
+async function testZabbixApi() {
+    const url = (getVal('cfg_api_base') || '').trim();
+    if (!url) return showToast('请先填写 API 地址', 'warning');
+    const payload = {
+        zabbix_api_base: url,
+        zabbix_api_user: getVal('cfg_user'),
+        zabbix_api_password: getVal('cfg_password'),
+        zabbix_api_token: null,
+    };
+    const btn = document.activeElement;
+    await withLoading(btn && btn.tagName === 'BUTTON' ? btn : null, async () => {
+        const res = await api('/api/zabbix/config/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+            setSystemStatus(true);
+            const ver = res.data?.version ? ` (v${res.data.version})` : '';
+            showToast('Zabbix API 连通正常' + ver, 'success');
+        } else {
+            setSystemStatus(false);
+            handleResult(res, 'Zabbix API 不可用');
+        }
+    });
+}
+
 // 3. 数据加载
 async function loadTemplates(isManual = false, btn = null) {
     const action = async () => {
         const res = await api('/api/zabbix/templates');
-        if (!res.ok) { handleResult(res); return; }
+        if (!res.ok) { handleResult(res); setSystemStatus(false); return; }
         State.templates = res.data || [];
         debouncedFilterTemplates();
         debouncedSearchTmpl();
+        setSystemStatus(!!getVal('cfg_api_base'));
         updateDashboard();
         if(isManual) showToast(`加载了 ${State.templates.length} 个模板`);
     };
@@ -320,10 +368,11 @@ async function loadTemplates(isManual = false, btn = null) {
 async function loadGroups(isManual = false, btn = null) {
     const action = async () => {
         const res = await api('/api/zabbix/groups');
-        if (!res.ok) { handleResult(res); return; }
+        if (!res.ok) { handleResult(res); setSystemStatus(false); return; }
         State.groups = res.data || [];
         debouncedFilterGroups();
         debouncedSearchGroup();
+        setSystemStatus(!!getVal('cfg_api_base'));
         updateDashboard();
         if(isManual) showToast(`加载了 ${State.groups.length} 个群组`);
     };
@@ -335,10 +384,12 @@ async function loadProxies(isManual = false, btn = null) {
         const res = await api('/api/zabbix/proxies');
         if (!res.ok) {
             if(isManual) handleResult(res);
+            setSystemStatus(false);
             return;
         }
         State.proxies = res.data || [];
         debouncedFilterProxies();
+        setSystemStatus(!!getVal('cfg_api_base'));
         if(isManual) showToast(`加载了 ${State.proxies.length} 个 Proxy`);
     };
     await withLoading(btn, action);
@@ -1153,8 +1204,6 @@ window.clearSelectorChoices = () => {
 window.viewRowLog = async (rowId) => {
     const row = State.batchRows.find(r => String(r.item_id) === String(rowId));
     if (!row) return;
-    State.batchSelection = new Set([String(rowId)]);
-    updateBatchActions();
     const res = State.batchResults[String(rowId)];
     const tid = res && res.task_id ? res.task_id : (State.taskIds.batch?.[0] || null);
     const hostId = res && res.host_id ? res.host_id : null;
@@ -1290,7 +1339,8 @@ async function loadBatchById(id) {
         State.currentBatchId = res.data.batch_id;
         State.currentBatchName = res.data.name || '';
         State.batchRows = res.data.hosts || [];
-        State.batchSelection = new Set(State.batchRows.map(h => String(h.item_id)));
+        // 默认不选中任何主机，需用户手动勾选
+        State.batchSelection = new Set();
         State.batchResults = {};
         if (Array.isArray(res.data.results)) {
             res.data.results.forEach(r => { State.batchResults[String(r.item_id)] = r; });
@@ -1394,7 +1444,8 @@ async function uploadBatch(btn) {
             State.currentBatchId = res.data.batch_id;
             State.currentBatchName = res.data.name || f.name || '';
             State.batchRows = res.data.hosts || [];
-            State.batchSelection = new Set(State.batchRows.map(h => String(h.item_id)));
+            // 导入后默认不选中任何行，需用户手动勾选
+            State.batchSelection = new Set();
             State.batchResults = {};
             renderBatchTable();
             await refreshBatchList();
@@ -1432,7 +1483,8 @@ async function saveCurrentBatch(btn) {
         if (handleResult(res, '批次已保存')) {
             State.currentBatchId = res.data?.batch_id || State.currentBatchId;
             State.currentBatchName = name;
-            State.batchSelection = new Set(State.batchRows.map(h => String(h.item_id)));
+            // 保存后默认不选中任何行，需用户手动勾选
+            State.batchSelection = new Set();
             await refreshBatchList();
             renderBatchTable();
             closeModal('saveBatchModal');
@@ -1583,7 +1635,14 @@ async function downloadBatchTemplate() {
         return;
     }
     const blob = await resp.blob();
-    const filename = 'zabbix_batch_template.xlsx';
+    let filename = `zabbix_batch_template_${Date.now()}.xlsx`;
+    const disposition = resp.headers.get('Content-Disposition') || resp.headers.get('content-disposition');
+    if (disposition) {
+        const match = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/i.exec(disposition);
+        if (match && match[1]) {
+            filename = match[1].replace(/['"]/g, '');
+        }
+    }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

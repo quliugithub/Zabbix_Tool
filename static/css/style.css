@@ -15,7 +15,9 @@ body { font-family: "Segoe UI", "PingFang SC", Arial, sans-serif; margin: 0; bac
 /* 标题栏 */
 header.main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 h1 { margin: 0; font-size: 24px; color: var(--text); }
-.status-badge { font-size: 12px; background: #d1fae5; color: #065f46; padding: 4px 8px; border-radius: 20px; font-weight: 600; }
+.status-badge { font-size: 12px; padding: 4px 8px; border-radius: 20px; font-weight: 600; }
+.status-badge.ok { background: #d1fae5; color: #065f46; }
+.status-badge.danger { background: rgba(239,68,68,0.15); color: var(--danger); }
 
 /* Tabs 导航 */
 .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 12px; }

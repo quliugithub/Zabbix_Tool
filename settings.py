@@ -26,6 +26,9 @@ class Settings(BaseModel):
     ssh_key_path: Optional[str] = Field(default=None, alias="SSH_KEY_PATH")
     ssh_port: int = Field(default=22, alias="SSH_PORT")
     debug: bool = Field(default=False, alias="DEBUG")
+    listen_host: str = Field(default="127.0.0.1", alias="LISTEN_HOST")
+    listen_port: int = Field(default=8000, alias="LISTEN_PORT")
+    shutdown_token: str = Field(default="shutdown-secret", alias="SHUTDOWN_TOKEN")
 
     class Config:
         populate_by_name = True

@@ -1,4 +1,5 @@
 from pathlib import Path
+import sys
 from typing import Generator
 
 from settings import get_settings
@@ -11,8 +12,20 @@ from batch_worker import BatchWorker
 import sqlite3
 
 SETTINGS = get_settings()
-BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_DIR = Path(SETTINGS.agent_upload_dir)
+def _resolve_base_dir() -> Path:
+    """Resolve runtime base dir; supports PyInstaller (_MEIPASS) packaging."""
+    bundle_dir = getattr(sys, "_MEIPASS", None)
+    if bundle_dir:
+        return Path(bundle_dir)
+    return Path(__file__).resolve().parent
+
+
+BASE_DIR = _resolve_base_dir()
+
+upload_cfg = Path(SETTINGS.agent_upload_dir)
+if not upload_cfg.is_absolute():
+    upload_cfg = BASE_DIR / upload_cfg
+UPLOAD_DIR = upload_cfg
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 DB_PATH = BASE_DIR / "data.db"
