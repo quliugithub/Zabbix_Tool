@@ -176,6 +176,7 @@ async def batch_run(
     group_ids = payload.get("group_ids") or []
     proxy_id = payload.get("proxy_id")
     register_server = payload.get("register_server", True)
+    register_only = payload.get("register_only", False)
     precheck = payload.get("precheck", False)
     web_monitor_url = payload.get("web_monitor_url")
     web_monitor_urls = payload.get("web_monitor_urls")
@@ -192,6 +193,7 @@ async def batch_run(
         "group_ids": group_ids,
         "proxy_id": proxy_id,
         "register_server": register_server,
+        "register_only": register_only,
         "precheck": precheck,
         "web_monitor_url": web_monitor_url,
         "web_monitor_urls": web_monitor_urls,

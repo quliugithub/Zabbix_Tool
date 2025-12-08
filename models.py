@@ -26,10 +26,10 @@ class InstallRequest(ServerInfo):
     group_ids: Optional[List[str]] = Field(default=None, description="Override: multiple group ids")
     visible_name: Optional[str] = Field(default=None, description="Alias/visible name for host")
     proxy_id: Optional[str] = Field(default=None, description="Zabbix proxy id (optional)")
-    ssh_user: Optional[str] = Field(default=None, description="Override SSH user")
-    ssh_password: Optional[str] = Field(default=None, description="Override SSH password")
+    ssh_user: str = Field(default=..., description="Override SSH user")
+    ssh_password: str = Field(default=..., description="Override SSH password")
     ssh_key_path: Optional[str] = Field(default=None, description="Override SSH key path")
-    ssh_port: Optional[int] = Field(default=None, description="Override SSH port")
+    ssh_port: int = Field(default=22, description="Override SSH port")
 
 
 class RegisterRequest(BaseModel):
@@ -46,6 +46,9 @@ class RegisterRequest(BaseModel):
     web_monitor_url: Optional[str] = None
     web_monitor_urls: Optional[List[str]] = None
     jmx_port: Optional[int] = Field(default=10052, description="JMX port if JMX templates are bound")
+    ssh_user: Optional[str] = Field(default=None, description="Override SSH user")
+    ssh_password: Optional[str] = Field(default=None, description="Override SSH password")
+    ssh_port: Optional[int] = Field(default=None, description="Override SSH port")
 
 
 class UninstallRequest(BaseModel):
@@ -63,6 +66,7 @@ class TemplateBindRequest(BaseModel):
     template_id: Optional[str] = None
     template_ids: Optional[List[str]] = None
     action: str = Field(..., pattern="^(bind|unbind)$")
+    jmx_port: Optional[int] = Field(default=10052, description="JMX port used when binding JMX templates")
 
 
 class TemplateDeleteRequest(BaseModel):

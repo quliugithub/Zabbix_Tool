@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import logging
 import os
@@ -58,7 +58,7 @@ class ZabbixService:
 
         _add(raw_list)
         _add(single)
-        # 去重但保留顺序
+
         deduped: List[str] = []
         seen = set()
         for u in urls:
@@ -80,28 +80,15 @@ class ZabbixService:
             except Exception as exc:
                 LOG.warning("auto hostname probe failed for %s: %s", req.ip, exc)
                 resolved_host = str(req.ip)
-        # 如果探测/传入的是 localhost，则回退为 IP
         if resolved_host and resolved_host.lower() in {"localhost", "localhost.localdomain"}:
             resolved_host = str(req.ip)
         visible = req.visible_name or resolved_host
         req = req.copy(update={"hostname": resolved_host, "visible_name": visible})
 
-        # 先注册/获取 host_id，便于后续日志和过滤
         host_id = None
         if getattr(req, "register_server", True):
             try:
-                host_id = self._ensure_host(req)
-                if log_store and task_id:
-                    log_store.add(
-                        task_id,
-                        "ensure_host",
-                        "ok",
-                        f"host ensured id={host_id}",
-                        ip=str(req.ip),
-                        hostname=req.hostname,
-                        host_id=host_id,
-                        zabbix_url=zabbix_url,
-                    )
+                host_id = self._ensure_host(req, task_id=task_id, log_store=log_store, zabbix_url=zabbix_url)
             except Exception as exc:
                 if log_store and task_id:
                     log_store.add(
@@ -132,12 +119,13 @@ class ZabbixService:
         )
 
         if getattr(req, "register_server", True):
-            # 模板绑定 / Web 监控等仍在安装后执行
+            # 妯℃澘缁戝畾 / Web 鐩戞帶绛変粛鍦ㄥ畨瑁呭悗鎵ц
             if req.template_ids or req.template_id or settings.default_template_id:
                 bind_req = TemplateBindRequest(
                     ip=req.ip,
                     template_id=req.template_id,
                     template_ids=req.template_ids,
+                    jmx_port=getattr(req, "jmx_port", None),
                     action="bind",
                 )
                 try:
@@ -216,6 +204,7 @@ class ZabbixService:
             hostname=resolved_hostname,
             host_id=host_id,
             zabbix_url=zabbix_url,
+            tolerant_steps={"stop_agent"},
         )
         if host:
             self._zbx("host.delete", [host["hostid"]])
@@ -226,23 +215,13 @@ class ZabbixService:
         zabbix_url = cfg.get("zabbix_api_base") or settings.zabbix_api_base
         resolved_host = getattr(req, "hostname", None) or str(req.ip)
         req = req.copy(update={"hostname": resolved_host}) if hasattr(req, "copy") else req
-        host_id = self._ensure_host(req)
-        if log_store and task_id:
-            log_store.add(
-                task_id,
-                "ensure_host",
-                "ok",
-                f"host ensured id={host_id}",
-                ip=str(req.ip),
-                hostname=getattr(req, "hostname", None),
-                host_id=host_id,
-                zabbix_url=zabbix_url,
-            )
+        host_id = self._ensure_host(req, task_id=task_id, log_store=log_store, zabbix_url=zabbix_url)
         if getattr(req, "template_ids", None) or getattr(req, "template_id", None) or settings.default_template_id:
             bind_req = TemplateBindRequest(
                 ip=req.ip,
                 template_id=getattr(req, "template_id", None),
                 template_ids=getattr(req, "template_ids", None),
+                jmx_port=getattr(req, "jmx_port", None),
                 action="bind",
             )
             try:
@@ -307,6 +286,25 @@ class ZabbixService:
             current_ids |= incoming
         else:
             current_ids -= incoming
+        # If binding a JMX template, ensure the host already has a JMX interface before template update
+        final_ids = set(current_ids)
+        needs_jmx = req.action == "bind" and self._has_jmx_template(list(final_ids))
+        if needs_jmx:
+            has_jmx_iface = any(int(i.get("type", 0)) == 4 for i in host.get("interfaces", []))
+            if not has_jmx_iface:
+                jmx_port = getattr(req, "jmx_port", None) or getattr(settings, "default_jmx_port", None) or 10052
+                self._zbx(
+                    "hostinterface.create",
+                    {
+                        "hostid": host["hostid"],
+                        "type": 4,
+                        "main": 1,
+                        "useip": 1,
+                        "ip": str(req.ip),
+                        "dns": "",
+                        "port": str(jmx_port),
+                    },
+                )
         new_templates = [{"templateid": tid} for tid in current_ids]
         self._zbx("host.update", {"hostid": host["hostid"], "templates": new_templates})
         return {"ip": str(req.ip), "template_ids": list(current_ids), "action": req.action}
@@ -447,9 +445,9 @@ class ZabbixService:
         )
         return res[0] if res else None
 
-    def _ensure_host(self, req: InstallRequest) -> str:
+    def _ensure_host(self, req: InstallRequest, task_id: str | None = None, log_store=None, zabbix_url: str | None = None) -> str:
         cfg = self.config_store.get()
-        # Agent 主机名已在 install_agent 解析，这里仅做兜底
+        # Agent 涓绘満鍚嶅凡鍦?install_agent 瑙ｆ瀽锛岃繖閲屼粎鍋氬厹搴?
         agent_hostname = req.hostname or str(req.ip)
 
         existing = self._get_host(agent_hostname, getattr(req, "proxy_id", None))
@@ -519,8 +517,7 @@ class ZabbixService:
         if existing:
             update_params = dict(base_params)
             update_params["hostid"] = existing["hostid"]
-            # Avoid touching interfaces on existing hosts to prevent "interface linked to item" errors
-            self._zbx("host.update", update_params)
+            # Ensure JMX interface exists before binding JMX templates, otherwise host.update will fail
             if has_jmx:
                 has_jmx_iface = any(int(i.get("type", 0)) == 4 for i in existing.get("interfaces", []))
                 if not has_jmx_iface:
@@ -536,12 +533,38 @@ class ZabbixService:
                             "port": str(jmx_port),
                         },
                     )
-            return existing["hostid"]
+            # Avoid touching interfaces on existing hosts to prevent "interface linked to item" errors
+            self._zbx("host.update", update_params)
+            host_id = existing["hostid"]
+            if log_store and task_id:
+                log_store.add(
+                    task_id,
+                    "ensure_host",
+                    "ok",
+                    f"host ensured id={host_id}; groups={grp_ids}; templates={tmpl_ids}; proxy={getattr(req, 'proxy_id', None) or '-'}",
+                    ip=str(req.ip),
+                    hostname=agent_hostname,
+                    host_id=host_id,
+                    zabbix_url=zabbix_url,
+                )
+            return host_id
 
         create_params = dict(base_params)
         create_params["interfaces"] = interfaces
         result = self._zbx("host.create", create_params)
-        return result["hostids"][0]
+        host_id = result["hostids"][0]
+        if log_store and task_id:
+            log_store.add(
+                task_id,
+                "ensure_host",
+                "ok",
+                f"host created id={host_id}; groups={grp_ids}; templates={tmpl_ids}; proxy={getattr(req, 'proxy_id', None) or '-'}",
+                ip=str(req.ip),
+                hostname=agent_hostname,
+                host_id=host_id,
+                zabbix_url=zabbix_url,
+            )
+        return host_id
 
     # --------------------------- SSH install/uninstall --------------------------- #
     def _run_steps(
@@ -557,11 +580,13 @@ class ZabbixService:
         hostname: str | None = None,
         host_id: str | None = None,
         zabbix_url: str | None = None,
+        tolerant_steps: Optional[set[str]] = None,
     ) -> str:
         """Execute steps one by one; on failure, run rollback script."""
         logs: List[str] = []
         last_step = None
-        tolerant_steps = {"pre_cleanup", "precheck"}
+        base_tolerant = {"pre_cleanup", "precheck"}
+        tolerant = base_tolerant | set(tolerant_steps or set())
         if preupload_local_path:
             self._upload_file(ip, preupload_local_path, remote_tmp, ssh_opts=ssh_opts)
             if log_store and task_id:
@@ -574,7 +599,7 @@ class ZabbixService:
                 try:
                     out = self._run_ssh(ip, script, ssh_opts=ssh_opts)
                 except Exception as exc:
-                    if name in tolerant_steps:
+                    if name in tolerant:
                         warn_msg = f"{name} ignored: {exc}"
                         logs.append(f"[{name}] {warn_msg}")
                         if log_store and task_id:
@@ -621,10 +646,10 @@ class ZabbixService:
             )
         except paramiko.ssh_exception.AuthenticationException as exc:
             ssh.close()
-            raise HTTPException(status_code=401, detail=f"SSH 认证失败: {exc}") from exc
+            raise HTTPException(status_code=401, detail=f"SSH 璁よ瘉澶辫触: {exc}") from exc
         except Exception as exc:
             ssh.close()
-            raise HTTPException(status_code=500, detail=f"SSH 连接失败: {exc}") from exc
+            raise HTTPException(status_code=500, detail=f"SSH 杩炴帴澶辫触: {exc}") from exc
         cmd = f"bash -s <<'EOF'\n{script}\nEOF"
         stdin, stdout, stderr = ssh.exec_command(cmd)
         out = stdout.read().decode()
@@ -733,10 +758,10 @@ class ZabbixService:
             )
         except paramiko.ssh_exception.AuthenticationException as exc:
             ssh.close()
-            raise HTTPException(status_code=401, detail=f"SFTP 认证失败: {exc}") from exc
+            raise HTTPException(status_code=401, detail=f"SFTP 璁よ瘉澶辫触: {exc}") from exc
         except Exception as exc:
             ssh.close()
-            raise HTTPException(status_code=500, detail=f"SFTP 连接失败: {exc}") from exc
+            raise HTTPException(status_code=500, detail=f"SFTP 杩炴帴澶辫触: {exc}") from exc
         try:
             sftp = ssh.open_sftp()
             sftp.put(local_path, remote_path)

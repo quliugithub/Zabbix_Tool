@@ -6,7 +6,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List
 
-from models import InstallRequest, UninstallRequest
+from models import InstallRequest, UninstallRequest, RegisterRequest
 from settings import get_settings
 
 
@@ -62,6 +62,7 @@ class BatchWorker:
         group_ids = payload.get("group_ids") or []
         proxy_id = payload.get("proxy_id")
         register_server = payload.get("register_server", True)
+        register_only = payload.get("register_only", False)
         precheck = payload.get("precheck", False)
         web_monitor_urls = payload.get("web_monitor_urls") or []
         web_monitor_url = payload.get("web_monitor_url")
@@ -117,27 +118,43 @@ class BatchWorker:
 
                     host_urls = h.get("web_monitor_urls") or h.get("web_monitor_url")
                     urls = _normalize_urls(host_urls) or _normalize_urls(web_monitor_urls) or _normalize_urls(web_monitor_url)
-                    req = InstallRequest(
-                        hostname=h.get("hostname"),
-                        ip=h["ip"],
-                        os_type=h.get("os_type") or "linux",
-                        env=h.get("env"),
-                        port=h.get("port") or 10050,
-                        ssh_user=h.get("ssh_user"),
-                        ssh_password=h.get("ssh_password"),
-                        ssh_port=h.get("ssh_port"),
-                        visible_name=h.get("visible_name"),
-                        template_ids=template_ids or h.get("template_ids") or ([h.get("template_id")] if h.get("template_id") else None),
-                        group_ids=group_ids or h.get("group_ids") or ([h.get("group_id")] if h.get("group_id") else None),
-                        proxy_id=proxy_id or h.get("proxy_id"),
-                        register_server=register_server,
-                        precheck=precheck,
-                        web_monitor_urls=urls,
-                        web_monitor_url=urls[0] if urls else None,
-                        jmx_port=jmx_port or h.get("jmx_port"),
-                    )
-                    res = self.svc.install_agent(req, task_id=task_id, log_store=self.log_store)
-                    res["task_id"] = task_id
+                    if register_only:
+                        req = RegisterRequest(
+                            hostname=h.get("hostname"),
+                            visible_name=h.get("visible_name"),
+                            ip=h["ip"],
+                            port=h.get("port") or 10050,
+                            template_ids=template_ids or h.get("template_ids") or ([h.get("template_id")] if h.get("template_id") else None),
+                            group_ids=group_ids or h.get("group_ids") or ([h.get("group_id")] if h.get("group_id") else None),
+                            proxy_id=proxy_id or h.get("proxy_id"),
+                            web_monitor_urls=urls,
+                            web_monitor_url=urls[0] if urls else None,
+                            jmx_port=jmx_port or h.get("jmx_port"),
+                        )
+                        res = self.svc.register_host(req, task_id=task_id, log_store=self.log_store)
+                        res["task_id"] = task_id
+                    else:
+                        req = InstallRequest(
+                            hostname=h.get("hostname"),
+                            ip=h["ip"],
+                            os_type=h.get("os_type") or "linux",
+                            env=h.get("env"),
+                            port=h.get("port") or 10050,
+                            ssh_user=h.get("ssh_user"),
+                            ssh_password=h.get("ssh_password"),
+                            ssh_port=h.get("ssh_port"),
+                            visible_name=h.get("visible_name"),
+                            template_ids=template_ids or h.get("template_ids") or ([h.get("template_id")] if h.get("template_id") else None),
+                            group_ids=group_ids or h.get("group_ids") or ([h.get("group_id")] if h.get("group_id") else None),
+                            proxy_id=proxy_id or h.get("proxy_id"),
+                            register_server=register_server,
+                            precheck=precheck,
+                            web_monitor_urls=urls,
+                            web_monitor_url=urls[0] if urls else None,
+                            jmx_port=jmx_port or h.get("jmx_port"),
+                        )
+                        res = self.svc.install_agent(req, task_id=task_id, log_store=self.log_store)
+                        res["task_id"] = task_id
                 host_id = res.get("host_id")
                 return {
                     "item_id": h.get("item_id"),
