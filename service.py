@@ -611,7 +611,8 @@ class ZabbixService:
         """Execute steps one by one; on failure, run rollback script."""
         logs: List[str] = []
         last_step = None
-        base_tolerant = {"pre_cleanup", "precheck"}
+        # Tolerant steps: do not fail install if these pre-check/cleanup steps error out
+        base_tolerant = {"pre_cleanup", "预清理agent相关文件", "precheck", "检查agent是否运行"}
         tolerant = base_tolerant | set(tolerant_steps or set())
         if preupload_local_path:
             try:

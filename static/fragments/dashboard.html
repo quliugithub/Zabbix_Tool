@@ -11,6 +11,11 @@
           <button class="secondary" onclick="loadGroups(true)" style="font-size:11px; padding:4px 8px;">刷新</button>
         </div>
         <div class="stat-card">
+          <div class="stat-label">已缓存 Proxy</div>
+          <div class="stat-val" id="stat-proxy-count">0</div>
+          <button class="secondary" onclick="loadProxies(true)" style="font-size:11px; padding:4px 8px;">刷新</button>
+        </div>
+        <div class="stat-card">
           <div class="stat-label">配置状态</div>
           <div class="stat-val" id="stat-config" style="font-size:16px; line-height:38px;">检测中...</div>
           <div class="stat-label" style="font-size:11px;">Server 连接性</div>

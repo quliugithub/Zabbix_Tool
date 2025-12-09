@@ -268,6 +268,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 function updateDashboard() {
     document.getElementById('stat-tmpl-count').textContent = State.templates.length;
     document.getElementById('stat-group-count').textContent = State.groups.length;
+    const proxyCountEl = document.getElementById('stat-proxy-count');
+    if (proxyCountEl) proxyCountEl.textContent = State.proxies.length;
     const hasApi = !!getVal('cfg_api_base');
     const statusEl = document.getElementById('stat-config');
     statusEl.textContent = hasApi ? '已配置' : '未配置';
@@ -1823,7 +1825,15 @@ window.showInstallLog = (tid) => {
         ...(State.lastInstallFilter?.zabbix_url ? { zabbix_url: State.lastInstallFilter.zabbix_url } : {}),
         ...(currentIp ? { ip: currentIp } : {}),
     };
-    return openLogModalWithTask(tid || State.taskIds.install, filter);
+    let target = tid || null;
+    if (!target) {
+        if (Array.isArray(State.taskIds.install) && State.taskIds.install.length) {
+            target = State.taskIds.install[State.taskIds.install.length - 1];
+        } else if (State.taskIds.install) {
+            target = State.taskIds.install;
+        }
+    }
+    return openLogModalWithTask(target, filter);
 };
 window.showBatchLog = (tid) => openLogModalWithTask(tid || (State.taskIds.batch.length ? State.taskIds.batch[0] : null));
 window.showUninstallLog = (tid) => openLogModalWithTask(tid || State.taskIds.uninstall);
