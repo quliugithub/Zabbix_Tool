@@ -3,7 +3,7 @@ from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException
 import httpx
 
-from dependencies import get_config_store
+from core.dependencies import get_config_store
 from utils.response import ok
 
 router = APIRouter(prefix="/api/zabbix", tags=["config"])

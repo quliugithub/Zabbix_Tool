@@ -30,6 +30,8 @@ State.batchQueueId = null;
 State.batchQueueTimer = null;
 State.batchDirty = false;
 State._unsavedResolve = null;
+State.autoRefreshTimer = null;
+const AUTO_REFRESH_MS = 300000; // 5 minutes
 
 // === 工具函数 ===
 const escapeHtml = (str) => {
@@ -261,6 +263,15 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('global-loading').style.display = 'none';
     updateDashboard();
     applyHistoryHidden();
+    // 周期刷新模板/群组/Proxy 缓存
+    if (!State.autoRefreshTimer) {
+        State.autoRefreshTimer = setInterval(() => {
+            if (document.hidden) return;
+            loadTemplates(false);
+            loadGroups(false);
+            loadProxies(false);
+        }, AUTO_REFRESH_MS);
+    }
     // 如果刷新后仍有未完成队列，继续轮询
     await recoverActiveQueue();
 });
@@ -783,15 +794,14 @@ function renderBatchTable() {
         const checked = State.batchSelection.has(id) ? 'checked' : '';
         const res = State.batchResults[id] || {};
         const statusRaw = (res.status || '').toLowerCase();
-        const statusClass = (['ok','installed','uninstalled'].includes(statusRaw)) ? 'ok'
-                            : (statusRaw === 'failed' ? 'failed'
-                            : (['installing','running','in-progress'].includes(statusRaw) ? 'installing' : 'pending'));
+        const statusClass = (['ok','installed','uninstalled','registered'].includes(statusRaw)) ? 'ok'
+                            : (['installing','running','in-progress'].includes(statusRaw) ? 'installing' : 'failed');
         const statusColor = statusClass === 'ok' ? '#10b981'
                             : (statusClass === 'failed' ? '#ef4444'
-                            : (statusClass === 'installing' ? '#0ea5e9' : '#94a3b8'));
+                            : '#0ea5e9');
         const statusIcon = statusClass === 'ok' ? '✔'
                           : (statusClass === 'failed' ? '✖'
-                          : (statusClass === 'installing' ? '⏳' : '•'));
+                          : '⏳');
         
         const proxyObj = State.proxies.find(p => String(p.proxyid) === String(row.proxy_id));
         const proxyLabel = proxyObj ? escapeHtml(proxyObj.name || proxyObj.host || proxyObj.proxyid) : (row.proxy_id ? escapeHtml(row.proxy_id) : '');

@@ -1,58 +1,59 @@
-# Zabbix Agent Service (standalone)
+# Zabbix Agent 控制台
 
-纯代码实现的 Zabbix agent 安装/卸载与模板绑定模块，脱离原有 YAML 逻辑。支持单机接口调用和 Excel 批量导入，并可被前端页面直接调用。
+简要说明：提供 Zabbix Agent 的安装/卸载/注册、模板/群组/Proxy/JMX/Web 监控绑定，支持单机和批量（Excel）操作，前端内置状态提示与日志查看。
 
-## UI 页面
-- 访问 `/` 打开简易 GUI：支持 Agent 包上传、模板/群组查询与删除、模板绑定/解绑、Agent 安装/卸载表单。
-- 上传接口 `POST /api/zabbix/agent/upload`，文件保存到 `ZABBIX_AGENT_UPLOAD_DIR`（默认 ./uploads），可通过 `/agent-packages/<filename>` 下载；可将返回 URL 配置给 `ZABBIX_AGENT_TGZ_URL` 使用。
+## 目录结构
+- `core/`：基础设施（`settings.py`、`dependencies.py`、`db_config.py`、`log_store.py`、`batch_store.py`）。
+- `services/`：核心业务逻辑（`service.py`）。
+- `schemas/`：Pydantic 数据模型（`models.py`）。
+- `tasks/`：任务存储与后台批处理（`task_store.py`、`batch_worker.py`）。
+- `utils/`：工具（`excel.py` 等）。
+- `api/`：FastAPI 路由。
+- `static/`：前端资源（含 `static/icon/zabbix.ico` favicon）。
+- `uploads/`：Agent 包上传目录（相对路径时自动创建）。
+- 入口：`main.py`（挂载静态资源、启动 uvicorn）。
 
-## 目录
-- `main.py`：FastAPI 入口，暴露安装/卸载/模板绑定/批量任务接口。
-- `models.py`：请求/数据模型。
-- `service.py`：核心业务（SSH 安装占位、Zabbix API 占位）。
-- `excel.py`：Excel 解析为请求列表。
-- `tasks.py`：简易内存任务状态存储。
-- `settings.py`：环境变量配置。
+## 运行（开发）
+1. 安装依赖：`pip install -r requirements.txt`
+2. 启动：`uvicorn main:app --host 0.0.0.0 --port 8000`
+3. 访问：http://127.0.0.1:8000/
+4. 关闭服务：`POST /shutdown`，Header `X-Token: <SHUTDOWN_TOKEN>`（默认 `shutdown-secret`）。
 
-## 运行
-```bash
-cd new_zabbix
-python -m venv .venv
-. .venv/Scripts/Activate.ps1   # PowerShell
-pip install -r requirements.txt
-uvicorn new_zabbix.main:app --reload --port 8100
+日志：控制台 + 运行目录 `run.log`（UTF-8）。
+
+## 配置说明（核心字段）
+- `ZABBIX_API_BASE` / `ZABBIX_API_TOKEN` 或 `ZABBIX_API_USER` + `ZABBIX_API_PASSWORD`
+- `ZABBIX_DEFAULT_TEMPLATE_ID` / `ZABBIX_DEFAULT_GROUP_ID`
+- `ZABBIX_AGENT_UPLOAD_DIR`（默认 uploads，相对路径自动创建）
+- `LISTEN_HOST` / `LISTEN_PORT`
+- `SHUTDOWN_TOKEN`（默认 `shutdown-secret`）
+- 其他：`ZABBIX_AGENT_TGZ_URL`、`ZABBIX_AGENT_INSTALL_DIR`、`SSH_USER/PASSWORD/KEY_PATH/PORT` 等
+
+配置页支持“一键测试 API”验证连通性，状态徽章会显示 Ready/NoReady。
+
+## 主要接口
+- 单机：`POST /api/zabbix/install` / `uninstall` / `register`
+- 模板/群组/Proxy：`/api/zabbix/template`（bind/unbind），`/templates`，`/groups`，`/proxies`
+- 批量：`/api/zabbix/batch`、`/batch/upload`、`/batch/run`、`/batch/template/download`、`/batch/queue/*`
+- 日志：`GET /api/zabbix/logs/{task_id}`
+- 配置：`GET/PUT /api/zabbix/config`，`POST /api/zabbix/config/test`
+- 关停：`POST /shutdown`（Header `X-Token`）
+
+业务说明：`services/service.py` 安装流程按 download/extract/write_config/write_unit/enable_service 分步执行，失败会回滚；卸载同理。日志写入 DB 与 `run.log`，前端可查看。
+
+## 打包（PyInstaller 示例）
+服务端 exe（可加 `--noconsole` 去掉黑框）：
+```
+pyinstaller --clean --noconfirm --onefile --name new_zabbix --icon zabbix.ico ^
+  --add-data "static;static" --add-data "uploads;uploads" --add-data "api;api" --add-data "utils;utils" ^
+  main.py
+```
+启动器（可选，launcher.py：启动服务、打开浏览器、退出时调用 `/shutdown`）：
+```
+pyinstaller --clean --noconfirm --onefile --name zabbix_launcher launcher.py
 ```
 
-环境变量：
-- `ZABBIX_API_BASE` / `ZABBIX_API_TOKEN`：Zabbix API 访问信息。
-- `ZABBIX_DEFAULT_TEMPLATE_ID` / `ZABBIX_DEFAULT_GROUP_ID`：默认模板/分组 ID。
-- `ZABBIX_SERVER_HOST`：Agent Server/ServerActive 填写的 Zabbix 服务端地址（默认 127.0.0.1）。
-- `ZABBIX_AGENT_TGZ_URL`：预置好的 zabbix agent2 tar.gz 下载地址（必填，固定包方式安装）。
-- `ZABBIX_AGENT_INSTALL_DIR`：解压安装目录（默认 /opt/zabbix-agent2）。
-- `SSH_USER` / `SSH_PASSWORD` / `SSH_KEY_PATH` / `SSH_PORT`：默认 SSH 凭据，可在请求体中覆盖。
-- Zabbix 接口凭据支持两种：配置 `ZABBIX_API_TOKEN`，或配置 `ZABBIX_API_USER` + `ZABBIX_API_PASSWORD` 由接口自动登录获取 token。界面“Zabbix 配置”页可编辑并写入本地 `config.db`。
-
-## Windows 打包为 .exe（简易 GUI 启动器）
-1. 安装依赖：`pip install -r requirements.txt pyinstaller`  
-2. 打包：`pyinstaller -F -w new_zabbix/gui_launcher.py`（-w 关闭控制台，-F 单文件）  
-3. 运行生成的 `dist/gui_launcher.exe`，会自动启动内置 FastAPI 并打开浏览器访问 `http://127.0.0.1:8100/`。
-> 如需携带 agent 安装包，可先上传一次（或放到 `uploads/`），并将返回的下载 URL 配置到 `ZABBIX_AGENT_TGZ_URL` 环境变量。
-
-## 接口示例
-- `POST /api/zabbix/install`：单机安装，体参见 `InstallRequest`。
-- `POST /api/zabbix/uninstall`：单机卸载。
-- `POST /api/zabbix/template`：模板绑定/解绑（`action`: bind|unbind）。
-- `GET /api/zabbix/templates`：查询所有模板。
-- `GET /api/zabbix/groups`：查询所有群组。
-- `POST /api/zabbix/template/delete`：删除模板（如有绑定主机会拒绝）。
-- `POST /api/zabbix/group/delete`：删除群组（如有绑定主机会拒绝）。
-- `POST /api/zabbix/batch`：批量安装/卸载，支持上传 Excel（首行列名），或 JSON 传入 `servers`。
-- `GET /api/zabbix/tasks/{task_id}`：查询批量任务状态。
-- `GET /api/zabbix/config` / `PUT /api/zabbix/config`：读取/保存 Zabbix 服务器配置（保存在本地 `config.db`）。
-
-> 说明：`service.py` 使用预置的 tgz 包方式安装，步骤被拆分为 download/extract/write_config/write_unit/enable_service 单独执行；任一步失败会执行回滚（停止服务、删除安装目录和 unit），接口返回的 `log` 包含每步输出。卸载同样分步执行。
-
-请求字段补充：
-- 安装：`template_id`（单个）、`template_ids`（多个，优先级高于单个；未提供则用 `ZABBIX_DEFAULT_TEMPLATE_ID`）、`group_id`/`group_ids`（支持多个，未提供则用 `ZABBIX_DEFAULT_GROUP_ID`，再不提供则落到 `1`）。`env` 会写成 tag。
-- 模板接口：支持 `template_id` 或 `template_ids`。
-- 安装/卸载可覆盖 SSH 凭据：`ssh_user`/`ssh_password`/`ssh_key_path`/`ssh_port`，未填则使用环境变量默认值。
+## 注意事项
+- 打包时务必包含静态资源：`--add-data "static;static"`；favicon 在 `static/icon/zabbix.ico`。
+- 重复启动：程序会探测端口，已有实例时仅打开浏览器，不再新建实例。
+- 上传 Agent 包：`POST /api/zabbix/agent/upload`，文件保存在 `ZABBIX_AGENT_UPLOAD_DIR`，可通过 `/agent-packages/<filename>` 下载或配置为安装包 URL。 

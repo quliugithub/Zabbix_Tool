@@ -7,10 +7,10 @@ from fastapi import APIRouter, UploadFile, File, BackgroundTasks, Body, Depends,
 from fastapi.responses import StreamingResponse
 import uuid
 
-from models import InstallRequest, UninstallRequest, BatchInstallRequest, TemplateBindRequest, RegisterRequest
-from excel import parse_excel
-from dependencies import get_zabbix_service, get_tasks, get_upload_dir, get_log_store, get_batch_store
-from settings import get_settings
+from schemas.models import InstallRequest, UninstallRequest, BatchInstallRequest, TemplateBindRequest, RegisterRequest
+from utils.excel import parse_excel
+from core.dependencies import get_zabbix_service, get_tasks, get_upload_dir, get_log_store, get_batch_store
+from core.settings import get_settings
 from utils.response import ok
 
 router = APIRouter(prefix="/api/zabbix", tags=["agent"])

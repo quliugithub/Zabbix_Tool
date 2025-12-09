@@ -12,8 +12,8 @@ import sys
 import http.client
 
 from api import health, config, agent, template, logs
-from dependencies import UPLOAD_DIR, BASE_DIR
-from settings import get_settings
+from core.dependencies import UPLOAD_DIR, BASE_DIR
+from core.settings import get_settings
 
 
 # ------------- Logging to file (no console) ------------- #

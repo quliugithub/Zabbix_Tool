@@ -32,7 +32,8 @@ imports:
  &#8226;   <a href="#codecs">codecs</a>
  &#8226;   <a href="#collections">collections</a>
  &#8226;   <a href="#copyreg">copyreg</a>
- &#8226;   <a href="#dependencies">dependencies</a>
+ &#8226;   <a href="#core.dependencies">core.dependencies</a>
+ &#8226;   <a href="#core.settings">core.settings</a>
  &#8226;   <a href="#encodings">encodings</a>
  &#8226;   <a href="#encodings.aliases">encodings.aliases</a>
  &#8226;   <a href="#encodings.ascii">encodings.ascii</a>
@@ -184,7 +185,6 @@ imports:
  &#8226;   <a href="#re._constants">re._constants</a>
  &#8226;   <a href="#re._parser">re._parser</a>
  &#8226;   <a href="#reprlib">reprlib</a>
- &#8226;   <a href="#settings">settings</a>
  &#8226;   <a href="#sre_compile">sre_compile</a>
  &#8226;   <a href="#sre_constants">sre_constants</a>
  &#8226;   <a href="#sre_parse">sre_parse</a>
@@ -1071,8 +1071,6 @@ imported by:
  &#8226;   <a href="#anyio.streams.tls">anyio.streams.tls</a>
  &#8226;   <a href="#anyio.to_thread">anyio.to_thread</a>
  &#8226;   <a href="#api.agent">api.agent</a>
- &#8226;   <a href="#batch_store">batch_store</a>
- &#8226;   <a href="#batch_worker">batch_worker</a>
  &#8226;   <a href="#click">click</a>
  &#8226;   <a href="#click._compat">click._compat</a>
  &#8226;   <a href="#click._termui_impl">click._termui_impl</a>
@@ -1090,6 +1088,9 @@ imported by:
  &#8226;   <a href="#click.types">click.types</a>
  &#8226;   <a href="#click.utils">click.utils</a>
  &#8226;   <a href="#codeop">codeop</a>
+ &#8226;   <a href="#core.batch_store">core.batch_store</a>
+ &#8226;   <a href="#core.db_config">core.db_config</a>
+ &#8226;   <a href="#core.log_store">core.log_store</a>
  &#8226;   <a href="#cryptography">cryptography</a>
  &#8226;   <a href="#cryptography.__about__">cryptography.__about__</a>
  &#8226;   <a href="#cryptography.exceptions">cryptography.exceptions</a>
@@ -1124,9 +1125,7 @@ imported by:
  &#8226;   <a href="#cryptography.hazmat.primitives.serialization">cryptography.hazmat.primitives.serialization</a>
  &#8226;   <a href="#cryptography.hazmat.primitives.serialization.ssh">cryptography.hazmat.primitives.serialization.ssh</a>
  &#8226;   <a href="#cryptography.utils">cryptography.utils</a>
- &#8226;   <a href="#db_config">db_config</a>
  &#8226;   <a href="#et_xmlfile.xmlfile">et_xmlfile.xmlfile</a>
- &#8226;   <a href="#excel">excel</a>
  &#8226;   <a href="#httpcore._api">httpcore._api</a>
  &#8226;   <a href="#httpcore._async.connection">httpcore._async.connection</a>
  &#8226;   <a href="#httpcore._async.connection_pool">httpcore._async.connection_pool</a>
@@ -1173,9 +1172,7 @@ imported by:
  &#8226;   <a href="#httpx._utils">httpx._utils</a>
  &#8226;   <a href="#importlib.metadata">importlib.metadata</a>
  &#8226;   <a href="#importlib.metadata._meta">importlib.metadata._meta</a>
- &#8226;   <a href="#log_store">log_store</a>
  &#8226;   <a href="#main.py">main.py</a>
- &#8226;   <a href="#models">models</a>
  &#8226;   <a href="#packaging._elffile">packaging._elffile</a>
  &#8226;   <a href="#packaging._manylinux">packaging._manylinux</a>
  &#8226;   <a href="#packaging._musllinux">packaging._musllinux</a>
@@ -1247,7 +1244,8 @@ imported by:
  &#8226;   <a href="#pydantic_core.core_schema">pydantic_core.core_schema</a>
  &#8226;   <a href="#pydoc">pydoc</a>
  &#8226;   <a href="#python_multipart.multipart">python_multipart.multipart</a>
- &#8226;   <a href="#service">service</a>
+ &#8226;   <a href="#schemas.models">schemas.models</a>
+ &#8226;   <a href="#services.service">services.service</a>
  &#8226;   <a href="#setuptools">setuptools</a>
  &#8226;   <a href="#setuptools._core_metadata">setuptools._core_metadata</a>
  &#8226;   <a href="#setuptools._distutils._modified">setuptools._distutils._modified</a>
@@ -1335,10 +1333,12 @@ imported by:
  &#8226;   <a href="#starlette.staticfiles">starlette.staticfiles</a>
  &#8226;   <a href="#starlette.status">starlette.status</a>
  &#8226;   <a href="#starlette.websockets">starlette.websockets</a>
- &#8226;   <a href="#tasks">tasks</a>
+ &#8226;   <a href="#tasks.batch_worker">tasks.batch_worker</a>
+ &#8226;   <a href="#tasks.task_store">tasks.task_store</a>
  &#8226;   <a href="#tomllib._parser">tomllib._parser</a>
  &#8226;   <a href="#tomllib._re">tomllib._re</a>
  &#8226;   <a href="#typing_inspection.introspection">typing_inspection.introspection</a>
+ &#8226;   <a href="#utils.excel">utils.excel</a>
  &#8226;   <a href="#uvicorn._compat">uvicorn._compat</a>
  &#8226;   <a href="#uvicorn._subprocess">uvicorn._subprocess</a>
  &#8226;   <a href="#uvicorn._types">uvicorn._types</a>
@@ -4404,17 +4404,17 @@ imported by:
 imports:
     <a href="#__future__">__future__</a>
  &#8226;   <a href="#api">api</a>
+ &#8226;   <a href="#core.dependencies">core.dependencies</a>
+ &#8226;   <a href="#core.settings">core.settings</a>
  &#8226;   <a href="#datetime">datetime</a>
- &#8226;   <a href="#dependencies">dependencies</a>
- &#8226;   <a href="#excel">excel</a>
  &#8226;   <a href="#fastapi">fastapi</a>
  &#8226;   <a href="#fastapi.responses">fastapi.responses</a>
  &#8226;   <a href="#io">io</a>
- &#8226;   <a href="#models">models</a>
  &#8226;   <a href="#openpyxl">openpyxl</a>
- &#8226;   <a href="#settings">settings</a>
+ &#8226;   <a href="#schemas.models">schemas.models</a>
  &#8226;   <a href="#tempfile">tempfile</a>
  &#8226;   <a href="#typing">typing</a>
+ &#8226;   <a href="#utils.excel">utils.excel</a>
  &#8226;   <a href="#utils.response">utils.response</a>
  &#8226;   <a href="#uuid">uuid</a>
 
@@ -4434,7 +4434,7 @@ imported by:
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
     <a href="#api">api</a>
- &#8226;   <a href="#dependencies">dependencies</a>
+ &#8226;   <a href="#core.dependencies">core.dependencies</a>
  &#8226;   <a href="#fastapi">fastapi</a>
  &#8226;   <a href="#httpx">httpx</a>
  &#8226;   <a href="#typing">typing</a>
@@ -4456,12 +4456,12 @@ imported by:
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
     <a href="#api">api</a>
- &#8226;   <a href="#dependencies">dependencies</a>
+ &#8226;   <a href="#core.dependencies">core.dependencies</a>
+ &#8226;   <a href="#core.settings">core.settings</a>
  &#8226;   <a href="#fastapi">fastapi</a>
  &#8226;   <a href="#fastapi.responses">fastapi.responses</a>
  &#8226;   <a href="#os">os</a>
  &#8226;   <a href="#pathlib">pathlib</a>
- &#8226;   <a href="#settings">settings</a>
  &#8226;   <a href="#utils.response">utils.response</a>
 
   </div>
@@ -4480,7 +4480,7 @@ imported by:
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
     <a href="#api">api</a>
- &#8226;   <a href="#dependencies">dependencies</a>
+ &#8226;   <a href="#core.dependencies">core.dependencies</a>
  &#8226;   <a href="#fastapi">fastapi</a>
  &#8226;   <a href="#utils.response">utils.response</a>
 
@@ -4500,9 +4500,9 @@ imported by:
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
     <a href="#api">api</a>
- &#8226;   <a href="#dependencies">dependencies</a>
+ &#8226;   <a href="#core.dependencies">core.dependencies</a>
  &#8226;   <a href="#fastapi">fastapi</a>
- &#8226;   <a href="#models">models</a>
+ &#8226;   <a href="#schemas.models">schemas.models</a>
  &#8226;   <a href="#utils.response">utils.response</a>
 
   </div>
@@ -5660,53 +5660,6 @@ imported by:
  &#8226;   <a href="#ssl">ssl</a>
  &#8226;   <a href="#urllib.request">urllib.request</a>
  &#8226;   <a href="#xmlrpc.client">xmlrpc.client</a>
-
-  </div>
-
-</div>
-
-<div class="node">
-  <a name="batch_store"></a>
-  <a target="code" href="///D:/SbhSourceCode/new_zabbix/batch_store.py" type="text/plain"><tt>batch_store</tt></a>
-<span class="moduletype">SourceModule</span>  <div class="import">
-imports:
-    <a href="#__future__">__future__</a>
- &#8226;   <a href="#json">json</a>
- &#8226;   <a href="#pathlib">pathlib</a>
- &#8226;   <a href="#sqlite3">sqlite3</a>
- &#8226;   <a href="#time">time</a>
- &#8226;   <a href="#typing">typing</a>
- &#8226;   <a href="#uuid">uuid</a>
-
-  </div>
-  <div class="import">
-imported by:
-    <a href="#dependencies">dependencies</a>
-
-  </div>
-
-</div>
-
-<div class="node">
-  <a name="batch_worker"></a>
-  <a target="code" href="///D:/SbhSourceCode/new_zabbix/batch_worker.py" type="text/plain"><tt>batch_worker</tt></a>
-<span class="moduletype">SourceModule</span>  <div class="import">
-imports:
-    <a href="#__future__">__future__</a>
- &#8226;   <a href="#concurrent.futures">concurrent.futures</a>
- &#8226;   <a href="#json">json</a>
- &#8226;   <a href="#logging">logging</a>
- &#8226;   <a href="#models">models</a>
- &#8226;   <a href="#settings">settings</a>
- &#8226;   <a href="#threading">threading</a>
- &#8226;   <a href="#time">time</a>
- &#8226;   <a href="#typing">typing</a>
- &#8226;   <a href="#uuid">uuid</a>
-
-  </div>
-  <div class="import">
-imported by:
-    <a href="#dependencies">dependencies</a>
 
   </div>
 
@@ -6930,11 +6883,11 @@ imported by:
  &#8226;   <a href="#asyncio.base_events">asyncio.base_events</a>
  &#8226;   <a href="#asyncio.futures">asyncio.futures</a>
  &#8226;   <a href="#asyncio.tasks">asyncio.tasks</a>
- &#8226;   <a href="#batch_worker">batch_worker</a>
  &#8226;   <a href="#concurrent.futures._base">concurrent.futures._base</a>
  &#8226;   <a href="#concurrent.futures.process">concurrent.futures.process</a>
  &#8226;   <a href="#concurrent.futures.thread">concurrent.futures.thread</a>
  &#8226;   <a href="#setuptools._distutils.command.build_ext">setuptools._distutils.command.build_ext</a>
+ &#8226;   <a href="#tasks.batch_worker">tasks.batch_worker</a>
  &#8226;   <a href="#uvicorn.middleware.wsgi">uvicorn.middleware.wsgi</a>
 
   </div>
@@ -7269,6 +7222,146 @@ imported by:
  &#8226;   <a href="#pickle">pickle</a>
  &#8226;   <a href="#re">re</a>
  &#8226;   <a href="#typing">typing</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="core"></a>
+  <a target="code" href="-" type="text/plain"><tt>core</tt></a>
+<span class="moduletype">NamespacePackage</span>  <div class="import">
+imported by:
+    <a href="#core.batch_store">core.batch_store</a>
+ &#8226;   <a href="#core.db_config">core.db_config</a>
+ &#8226;   <a href="#core.dependencies">core.dependencies</a>
+ &#8226;   <a href="#core.log_store">core.log_store</a>
+ &#8226;   <a href="#core.settings">core.settings</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="core.batch_store"></a>
+  <a target="code" href="///D:/SbhSourceCode/new_zabbix/core/batch_store.py" type="text/plain"><tt>core.batch_store</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#__future__">__future__</a>
+ &#8226;   <a href="#core">core</a>
+ &#8226;   <a href="#json">json</a>
+ &#8226;   <a href="#pathlib">pathlib</a>
+ &#8226;   <a href="#sqlite3">sqlite3</a>
+ &#8226;   <a href="#time">time</a>
+ &#8226;   <a href="#typing">typing</a>
+ &#8226;   <a href="#uuid">uuid</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#core.dependencies">core.dependencies</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="core.db_config"></a>
+  <a target="code" href="///D:/SbhSourceCode/new_zabbix/core/db_config.py" type="text/plain"><tt>core.db_config</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#__future__">__future__</a>
+ &#8226;   <a href="#core">core</a>
+ &#8226;   <a href="#core.settings">core.settings</a>
+ &#8226;   <a href="#json">json</a>
+ &#8226;   <a href="#pathlib">pathlib</a>
+ &#8226;   <a href="#sqlite3">sqlite3</a>
+ &#8226;   <a href="#typing">typing</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#core.dependencies">core.dependencies</a>
+ &#8226;   <a href="#services.service">services.service</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="core.dependencies"></a>
+  <a target="code" href="///D:/SbhSourceCode/new_zabbix/core/dependencies.py" type="text/plain"><tt>core.dependencies</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#core">core</a>
+ &#8226;   <a href="#core.batch_store">core.batch_store</a>
+ &#8226;   <a href="#core.db_config">core.db_config</a>
+ &#8226;   <a href="#core.log_store">core.log_store</a>
+ &#8226;   <a href="#core.settings">core.settings</a>
+ &#8226;   <a href="#pathlib">pathlib</a>
+ &#8226;   <a href="#services.service">services.service</a>
+ &#8226;   <a href="#sqlite3">sqlite3</a>
+ &#8226;   <a href="#sys">sys</a>
+ &#8226;   <a href="#tasks">tasks</a>
+ &#8226;   <a href="#tasks.batch_worker">tasks.batch_worker</a>
+ &#8226;   <a href="#typing">typing</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#api.agent">api.agent</a>
+ &#8226;   <a href="#api.config">api.config</a>
+ &#8226;   <a href="#api.health">api.health</a>
+ &#8226;   <a href="#api.logs">api.logs</a>
+ &#8226;   <a href="#api.template">api.template</a>
+ &#8226;   <a href="#main.py">main.py</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="core.log_store"></a>
+  <a target="code" href="///D:/SbhSourceCode/new_zabbix/core/log_store.py" type="text/plain"><tt>core.log_store</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#__future__">__future__</a>
+ &#8226;   <a href="#core">core</a>
+ &#8226;   <a href="#pathlib">pathlib</a>
+ &#8226;   <a href="#sqlite3">sqlite3</a>
+ &#8226;   <a href="#time">time</a>
+ &#8226;   <a href="#typing">typing</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#core.dependencies">core.dependencies</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="core.settings"></a>
+  <a target="code" href="///D:/SbhSourceCode/new_zabbix/core/settings.py" type="text/plain"><tt>core.settings</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#core">core</a>
+ &#8226;   <a href="#os">os</a>
+ &#8226;   <a href="#pydantic">pydantic</a>
+ &#8226;   <a href="#pydantic.BaseModel">pydantic.BaseModel</a>
+ &#8226;   <a href="#typing">typing</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#api.agent">api.agent</a>
+ &#8226;   <a href="#api.health">api.health</a>
+ &#8226;   <a href="#core.db_config">core.db_config</a>
+ &#8226;   <a href="#core.dependencies">core.dependencies</a>
+ &#8226;   <a href="#main.py">main.py</a>
+ &#8226;   <a href="#services.service">services.service</a>
+ &#8226;   <a href="#tasks.batch_worker">tasks.batch_worker</a>
 
   </div>
 
@@ -8719,28 +8812,6 @@ imported by:
 </div>
 
 <div class="node">
-  <a name="db_config"></a>
-  <a target="code" href="///D:/SbhSourceCode/new_zabbix/db_config.py" type="text/plain"><tt>db_config</tt></a>
-<span class="moduletype">SourceModule</span>  <div class="import">
-imports:
-    <a href="#__future__">__future__</a>
- &#8226;   <a href="#json">json</a>
- &#8226;   <a href="#pathlib">pathlib</a>
- &#8226;   <a href="#settings">settings</a>
- &#8226;   <a href="#sqlite3">sqlite3</a>
- &#8226;   <a href="#typing">typing</a>
-
-  </div>
-  <div class="import">
-imported by:
-    <a href="#dependencies">dependencies</a>
- &#8226;   <a href="#service">service</a>
-
-  </div>
-
-</div>
-
-<div class="node">
   <a name="decimal"></a>
   <a target="code" href="///C:/Python3/Lib/decimal.py" type="text/plain"><tt>decimal</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
@@ -8780,37 +8851,6 @@ imported by:
 <span class="moduletype">MissingModule</span>  <div class="import">
 imported by:
     <a href="#openpyxl.xml">openpyxl.xml</a>
-
-  </div>
-
-</div>
-
-<div class="node">
-  <a name="dependencies"></a>
-  <a target="code" href="///D:/SbhSourceCode/new_zabbix/dependencies.py" type="text/plain"><tt>dependencies</tt></a>
-<span class="moduletype">SourceModule</span>  <div class="import">
-imports:
-    <a href="#batch_store">batch_store</a>
- &#8226;   <a href="#batch_worker">batch_worker</a>
- &#8226;   <a href="#db_config">db_config</a>
- &#8226;   <a href="#log_store">log_store</a>
- &#8226;   <a href="#pathlib">pathlib</a>
- &#8226;   <a href="#service">service</a>
- &#8226;   <a href="#settings">settings</a>
- &#8226;   <a href="#sqlite3">sqlite3</a>
- &#8226;   <a href="#sys">sys</a>
- &#8226;   <a href="#tasks">tasks</a>
- &#8226;   <a href="#typing">typing</a>
-
-  </div>
-  <div class="import">
-imported by:
-    <a href="#api.agent">api.agent</a>
- &#8226;   <a href="#api.config">api.config</a>
- &#8226;   <a href="#api.health">api.health</a>
- &#8226;   <a href="#api.logs">api.logs</a>
- &#8226;   <a href="#api.template">api.template</a>
- &#8226;   <a href="#main.py">main.py</a>
 
   </div>
 
@@ -12138,26 +12178,6 @@ imported by:
 </div>
 
 <div class="node">
-  <a name="excel"></a>
-  <a target="code" href="///D:/SbhSourceCode/new_zabbix/excel.py" type="text/plain"><tt>excel</tt></a>
-<span class="moduletype">SourceModule</span>  <div class="import">
-imports:
-    <a href="#__future__">__future__</a>
- &#8226;   <a href="#models">models</a>
- &#8226;   <a href="#openpyxl">openpyxl</a>
- &#8226;   <a href="#pathlib">pathlib</a>
- &#8226;   <a href="#typing">typing</a>
-
-  </div>
-  <div class="import">
-imported by:
-    <a href="#api.agent">api.agent</a>
-
-  </div>
-
-</div>
-
-<div class="node">
   <a name="exceptiongroup"></a>
   <a target="code" href="" type="text/plain"><tt>exceptiongroup</tt></a>
 <span class="moduletype">MissingModule</span>  <div class="import">
@@ -12229,7 +12249,7 @@ imported by:
  &#8226;   <a href="#fastapi.utils">fastapi.utils</a>
  &#8226;   <a href="#fastapi.websockets">fastapi.websockets</a>
  &#8226;   <a href="#main.py">main.py</a>
- &#8226;   <a href="#service">service</a>
+ &#8226;   <a href="#services.service">services.service</a>
 
   </div>
 
@@ -15411,7 +15431,7 @@ imported by:
  &#8226;   <a href="#httpx._urlparse">httpx._urlparse</a>
  &#8226;   <a href="#httpx._urls">httpx._urls</a>
  &#8226;   <a href="#httpx._utils">httpx._utils</a>
- &#8226;   <a href="#service">service</a>
+ &#8226;   <a href="#services.service">services.service</a>
 
   </div>
 
@@ -18243,9 +18263,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#batch_store">batch_store</a>
- &#8226;   <a href="#batch_worker">batch_worker</a>
- &#8226;   <a href="#db_config">db_config</a>
+    <a href="#core.batch_store">core.batch_store</a>
+ &#8226;   <a href="#core.db_config">core.db_config</a>
  &#8226;   <a href="#fastapi.openapi.docs">fastapi.openapi.docs</a>
  &#8226;   <a href="#fastapi.routing">fastapi.routing</a>
  &#8226;   <a href="#httpx._content">httpx._content</a>
@@ -18272,6 +18291,7 @@ imported by:
  &#8226;   <a href="#starlette.requests">starlette.requests</a>
  &#8226;   <a href="#starlette.responses">starlette.responses</a>
  &#8226;   <a href="#starlette.websockets">starlette.websockets</a>
+ &#8226;   <a href="#tasks.batch_worker">tasks.batch_worker</a>
  &#8226;   <a href="#uvicorn.config">uvicorn.config</a>
 
   </div>
@@ -18425,26 +18445,6 @@ imported by:
 </div>
 
 <div class="node">
-  <a name="log_store"></a>
-  <a target="code" href="///D:/SbhSourceCode/new_zabbix/log_store.py" type="text/plain"><tt>log_store</tt></a>
-<span class="moduletype">SourceModule</span>  <div class="import">
-imports:
-    <a href="#__future__">__future__</a>
- &#8226;   <a href="#pathlib">pathlib</a>
- &#8226;   <a href="#sqlite3">sqlite3</a>
- &#8226;   <a href="#time">time</a>
- &#8226;   <a href="#typing">typing</a>
-
-  </div>
-  <div class="import">
-imported by:
-    <a href="#dependencies">dependencies</a>
-
-  </div>
-
-</div>
-
-<div class="node">
   <a name="logging"></a>
   <a target="code" href="///C:/Python3/Lib/logging/__init__.py" type="text/plain"><tt>logging</tt></a>
 <span class="moduletype">Package</span>  <div class="import">
@@ -18470,7 +18470,6 @@ imported by:
     <a href="#anyio.streams.tls">anyio.streams.tls</a>
  &#8226;   <a href="#asyncio.futures">asyncio.futures</a>
  &#8226;   <a href="#asyncio.log">asyncio.log</a>
- &#8226;   <a href="#batch_worker">batch_worker</a>
  &#8226;   <a href="#concurrent.futures._base">concurrent.futures._base</a>
  &#8226;   <a href="#fastapi.logger">fastapi.logger</a>
  &#8226;   <a href="#hashlib">hashlib</a>
@@ -18497,7 +18496,7 @@ imported by:
  &#8226;   <a href="#paramiko.common">paramiko.common</a>
  &#8226;   <a href="#paramiko.util">paramiko.util</a>
  &#8226;   <a href="#python_multipart.multipart">python_multipart.multipart</a>
- &#8226;   <a href="#service">service</a>
+ &#8226;   <a href="#services.service">services.service</a>
  &#8226;   <a href="#setuptools._distutils._log">setuptools._distutils._log</a>
  &#8226;   <a href="#setuptools._distutils.cmd">setuptools._distutils.cmd</a>
  &#8226;   <a href="#setuptools._distutils.dist">setuptools._distutils.dist</a>
@@ -18510,6 +18509,7 @@ imported by:
  &#8226;   <a href="#setuptools.config._validate_pyproject.formats">setuptools.config._validate_pyproject.formats</a>
  &#8226;   <a href="#setuptools.config.pyprojecttoml">setuptools.config.pyprojecttoml</a>
  &#8226;   <a href="#setuptools.logging">setuptools.logging</a>
+ &#8226;   <a href="#tasks.batch_worker">tasks.batch_worker</a>
  &#8226;   <a href="#unittest._log">unittest._log</a>
  &#8226;   <a href="#uvicorn.config">uvicorn.config</a>
  &#8226;   <a href="#uvicorn.lifespan.on">uvicorn.lifespan.on</a>
@@ -18718,29 +18718,6 @@ imported by:
 imported by:
     <a href="#multiprocessing.heap">multiprocessing.heap</a>
  &#8226;   <a href="#multiprocessing.shared_memory">multiprocessing.shared_memory</a>
-
-  </div>
-
-</div>
-
-<div class="node">
-  <a name="models"></a>
-  <a target="code" href="///D:/SbhSourceCode/new_zabbix/models.py" type="text/plain"><tt>models</tt></a>
-<span class="moduletype">SourceModule</span>  <div class="import">
-imports:
-    <a href="#__future__">__future__</a>
- &#8226;   <a href="#pydantic">pydantic</a>
- &#8226;   <a href="#pydantic.BaseModel">pydantic.BaseModel</a>
- &#8226;   <a href="#typing">typing</a>
-
-  </div>
-  <div class="import">
-imported by:
-    <a href="#api.agent">api.agent</a>
- &#8226;   <a href="#api.template">api.template</a>
- &#8226;   <a href="#batch_worker">batch_worker</a>
- &#8226;   <a href="#excel">excel</a>
- &#8226;   <a href="#service">service</a>
 
   </div>
 
@@ -20321,7 +20298,6 @@ imports:
   <div class="import">
 imported by:
     <a href="#api.agent">api.agent</a>
- &#8226;   <a href="#excel">excel</a>
  &#8226;   <a href="#openpyxl._constants">openpyxl._constants</a>
  &#8226;   <a href="#openpyxl.cell">openpyxl.cell</a>
  &#8226;   <a href="#openpyxl.cell._writer">openpyxl.cell._writer</a>
@@ -20345,6 +20321,7 @@ imported by:
  &#8226;   <a href="#openpyxl.writer">openpyxl.writer</a>
  &#8226;   <a href="#openpyxl.xml">openpyxl.xml</a>
  &#8226;   <a href="#openpyxl.xml.functions">openpyxl.xml.functions</a>
+ &#8226;   <a href="#utils.excel">utils.excel</a>
 
   </div>
 
@@ -25175,6 +25152,7 @@ imported by:
  &#8226;   <a href="#concurrent.futures.thread">concurrent.futures.thread</a>
  &#8226;   <a href="#configparser">configparser</a>
  &#8226;   <a href="#contextlib">contextlib</a>
+ &#8226;   <a href="#core.settings">core.settings</a>
  &#8226;   <a href="#cryptography.hazmat.bindings.openssl.binding">cryptography.hazmat.bindings.openssl.binding</a>
  &#8226;   <a href="#cryptography.hazmat.primitives.serialization.ssh">cryptography.hazmat.primitives.serialization.ssh</a>
  &#8226;   <a href="#ctypes">ctypes</a>
@@ -25282,8 +25260,7 @@ imported by:
  &#8226;   <a href="#python_multipart.multipart">python_multipart.multipart</a>
  &#8226;   <a href="#random">random</a>
  &#8226;   <a href="#runpy">runpy</a>
- &#8226;   <a href="#service">service</a>
- &#8226;   <a href="#settings">settings</a>
+ &#8226;   <a href="#services.service">services.service</a>
  &#8226;   <a href="#setuptools">setuptools</a>
  &#8226;   <a href="#setuptools._core_metadata">setuptools._core_metadata</a>
  &#8226;   <a href="#setuptools._distutils.archive_util">setuptools._distutils.archive_util</a>
@@ -25893,7 +25870,7 @@ imported by:
  &#8226;   <a href="#paramiko.util">paramiko.util</a>
  &#8226;   <a href="#paramiko.win_openssh">paramiko.win_openssh</a>
  &#8226;   <a href="#paramiko.win_pageant">paramiko.win_pageant</a>
- &#8226;   <a href="#service">service</a>
+ &#8226;   <a href="#services.service">services.service</a>
 
   </div>
 
@@ -27067,11 +27044,11 @@ imports:
 imported by:
     <a href="#anyio._core._fileio">anyio._core._fileio</a>
  &#8226;   <a href="#api.health">api.health</a>
- &#8226;   <a href="#batch_store">batch_store</a>
  &#8226;   <a href="#click._termui_impl">click._termui_impl</a>
- &#8226;   <a href="#db_config">db_config</a>
- &#8226;   <a href="#dependencies">dependencies</a>
- &#8226;   <a href="#excel">excel</a>
+ &#8226;   <a href="#core.batch_store">core.batch_store</a>
+ &#8226;   <a href="#core.db_config">core.db_config</a>
+ &#8226;   <a href="#core.dependencies">core.dependencies</a>
+ &#8226;   <a href="#core.log_store">core.log_store</a>
  &#8226;   <a href="#fastapi.encoders">fastapi.encoders</a>
  &#8226;   <a href="#httpx._multipart">httpx._multipart</a>
  &#8226;   <a href="#importlib.metadata">importlib.metadata</a>
@@ -27079,7 +27056,6 @@ imported by:
  &#8226;   <a href="#importlib.resources.abc">importlib.resources.abc</a>
  &#8226;   <a href="#importlib.resources.readers">importlib.resources.readers</a>
  &#8226;   <a href="#invoke.loader">invoke.loader</a>
- &#8226;   <a href="#log_store">log_store</a>
  &#8226;   <a href="#main.py">main.py</a>
  &#8226;   <a href="#multipart">multipart</a>
  &#8226;   <a href="#paramiko.pkey">paramiko.pkey</a>
@@ -27103,7 +27079,7 @@ imported by:
  &#8226;   <a href="#pydantic.v1.validators">pydantic.v1.validators</a>
  &#8226;   <a href="#pydantic.v1.version">pydantic.v1.version</a>
  &#8226;   <a href="#pydantic.version">pydantic.version</a>
- &#8226;   <a href="#service">service</a>
+ &#8226;   <a href="#services.service">services.service</a>
  &#8226;   <a href="#setuptools._distutils.compilers.C.base">setuptools._distutils.compilers.C.base</a>
  &#8226;   <a href="#setuptools._distutils.dir_util">setuptools._distutils.dir_util</a>
  &#8226;   <a href="#setuptools._distutils.dist">setuptools._distutils.dist</a>
@@ -27117,6 +27093,7 @@ imported by:
  &#8226;   <a href="#setuptools.config.expand">setuptools.config.expand</a>
  &#8226;   <a href="#setuptools.discovery">setuptools.discovery</a>
  &#8226;   <a href="#setuptools.dist">setuptools.dist</a>
+ &#8226;   <a href="#utils.excel">utils.excel</a>
  &#8226;   <a href="#uvicorn.config">uvicorn.config</a>
  &#8226;   <a href="#uvicorn.supervisors.basereload">uvicorn.supervisors.basereload</a>
  &#8226;   <a href="#uvicorn.supervisors.statreload">uvicorn.supervisors.statreload</a>
@@ -27574,7 +27551,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#fastapi._compat.main">fastapi._compat.main</a>
+    <a href="#core.settings">core.settings</a>
+ &#8226;   <a href="#fastapi._compat.main">fastapi._compat.main</a>
  &#8226;   <a href="#fastapi._compat.shared">fastapi._compat.shared</a>
  &#8226;   <a href="#fastapi._compat.v1">fastapi._compat.v1</a>
  &#8226;   <a href="#fastapi._compat.v2">fastapi._compat.v2</a>
@@ -27587,7 +27565,6 @@ imported by:
  &#8226;   <a href="#fastapi.security.http">fastapi.security.http</a>
  &#8226;   <a href="#fastapi.types">fastapi.types</a>
  &#8226;   <a href="#fastapi.utils">fastapi.utils</a>
- &#8226;   <a href="#models">models</a>
  &#8226;   <a href="#pydantic">pydantic</a>
  &#8226;   <a href="#pydantic._internal">pydantic._internal</a>
  &#8226;   <a href="#pydantic._internal._core_utils">pydantic._internal._core_utils</a>
@@ -27637,7 +27614,7 @@ imported by:
  &#8226;   <a href="#pydantic.validators">pydantic.validators</a>
  &#8226;   <a href="#pydantic.version">pydantic.version</a>
  &#8226;   <a href="#pydantic.warnings">pydantic.warnings</a>
- &#8226;   <a href="#settings">settings</a>
+ &#8226;   <a href="#schemas.models">schemas.models</a>
 
   </div>
 
@@ -27648,7 +27625,8 @@ imported by:
   <a target="code" href="" type="text/plain"><tt>pydantic.BaseModel</tt></a>
 <span class="moduletype">MissingModule</span>  <div class="import">
 imported by:
-    <a href="#fastapi._compat.main">fastapi._compat.main</a>
+    <a href="#core.settings">core.settings</a>
+ &#8226;   <a href="#fastapi._compat.main">fastapi._compat.main</a>
  &#8226;   <a href="#fastapi._compat.shared">fastapi._compat.shared</a>
  &#8226;   <a href="#fastapi._compat.v1">fastapi._compat.v1</a>
  &#8226;   <a href="#fastapi._compat.v2">fastapi._compat.v2</a>
@@ -27661,13 +27639,12 @@ imported by:
  &#8226;   <a href="#fastapi.security.http">fastapi.security.http</a>
  &#8226;   <a href="#fastapi.types">fastapi.types</a>
  &#8226;   <a href="#fastapi.utils">fastapi.utils</a>
- &#8226;   <a href="#models">models</a>
  &#8226;   <a href="#pydantic">pydantic</a>
  &#8226;   <a href="#pydantic._internal._core_utils">pydantic._internal._core_utils</a>
  &#8226;   <a href="#pydantic._internal._import_utils">pydantic._internal._import_utils</a>
  &#8226;   <a href="#pydantic._internal._typing_extra">pydantic._internal._typing_extra</a>
  &#8226;   <a href="#pydantic.deprecated.copy_internals">pydantic.deprecated.copy_internals</a>
- &#8226;   <a href="#settings">settings</a>
+ &#8226;   <a href="#schemas.models">schemas.models</a>
 
   </div>
 
@@ -32019,6 +31996,47 @@ imported by:
 </div>
 
 <div class="node">
+  <a name="schemas"></a>
+  <a target="code" href="///D:/SbhSourceCode/new_zabbix/schemas/__init__.py" type="text/plain"><tt>schemas</tt></a>
+<span class="moduletype">Package</span>  <div class="import">
+imports:
+    <a href="#schemas.models">schemas.models</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#schemas.models">schemas.models</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="schemas.models"></a>
+  <a target="code" href="///D:/SbhSourceCode/new_zabbix/schemas/models.py" type="text/plain"><tt>schemas.models</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#__future__">__future__</a>
+ &#8226;   <a href="#pydantic">pydantic</a>
+ &#8226;   <a href="#pydantic.BaseModel">pydantic.BaseModel</a>
+ &#8226;   <a href="#schemas">schemas</a>
+ &#8226;   <a href="#typing">typing</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#api.agent">api.agent</a>
+ &#8226;   <a href="#api.template">api.template</a>
+ &#8226;   <a href="#schemas">schemas</a>
+ &#8226;   <a href="#services.service">services.service</a>
+ &#8226;   <a href="#tasks.batch_worker">tasks.batch_worker</a>
+ &#8226;   <a href="#utils.excel">utils.excel</a>
+
+  </div>
+
+</div>
+
+<div class="node">
   <a name="secrets"></a>
   <a target="code" href="///C:/Python3/Lib/secrets.py" type="text/plain"><tt>secrets</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
@@ -32087,20 +32105,32 @@ imported by:
 </div>
 
 <div class="node">
-  <a name="service"></a>
-  <a target="code" href="///D:/SbhSourceCode/new_zabbix/service.py" type="text/plain"><tt>service</tt></a>
+  <a name="services"></a>
+  <a target="code" href="-" type="text/plain"><tt>services</tt></a>
+<span class="moduletype">NamespacePackage</span>  <div class="import">
+imported by:
+    <a href="#services.service">services.service</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="services.service"></a>
+  <a target="code" href="///D:/SbhSourceCode/new_zabbix/services/service.py" type="text/plain"><tt>services.service</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
     <a href="#__future__">__future__</a>
- &#8226;   <a href="#db_config">db_config</a>
+ &#8226;   <a href="#core.db_config">core.db_config</a>
+ &#8226;   <a href="#core.settings">core.settings</a>
  &#8226;   <a href="#fastapi">fastapi</a>
  &#8226;   <a href="#httpx">httpx</a>
  &#8226;   <a href="#logging">logging</a>
- &#8226;   <a href="#models">models</a>
  &#8226;   <a href="#os">os</a>
  &#8226;   <a href="#paramiko">paramiko</a>
  &#8226;   <a href="#pathlib">pathlib</a>
- &#8226;   <a href="#settings">settings</a>
+ &#8226;   <a href="#schemas.models">schemas.models</a>
+ &#8226;   <a href="#services">services</a>
  &#8226;   <a href="#typing">typing</a>
  &#8226;   <a href="#urllib.parse">urllib.parse</a>
  &#8226;   <a href="#uuid">uuid</a>
@@ -32108,32 +32138,7 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#dependencies">dependencies</a>
-
-  </div>
-
-</div>
-
-<div class="node">
-  <a name="settings"></a>
-  <a target="code" href="///D:/SbhSourceCode/new_zabbix/settings.py" type="text/plain"><tt>settings</tt></a>
-<span class="moduletype">SourceModule</span>  <div class="import">
-imports:
-    <a href="#os">os</a>
- &#8226;   <a href="#pydantic">pydantic</a>
- &#8226;   <a href="#pydantic.BaseModel">pydantic.BaseModel</a>
- &#8226;   <a href="#typing">typing</a>
-
-  </div>
-  <div class="import">
-imported by:
-    <a href="#api.agent">api.agent</a>
- &#8226;   <a href="#api.health">api.health</a>
- &#8226;   <a href="#batch_worker">batch_worker</a>
- &#8226;   <a href="#db_config">db_config</a>
- &#8226;   <a href="#dependencies">dependencies</a>
- &#8226;   <a href="#main.py">main.py</a>
- &#8226;   <a href="#service">service</a>
+    <a href="#core.dependencies">core.dependencies</a>
 
   </div>
 
@@ -36663,10 +36668,10 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#batch_store">batch_store</a>
- &#8226;   <a href="#db_config">db_config</a>
- &#8226;   <a href="#dependencies">dependencies</a>
- &#8226;   <a href="#log_store">log_store</a>
+    <a href="#core.batch_store">core.batch_store</a>
+ &#8226;   <a href="#core.db_config">core.db_config</a>
+ &#8226;   <a href="#core.dependencies">core.dependencies</a>
+ &#8226;   <a href="#core.log_store">core.log_store</a>
  &#8226;   <a href="#sqlite3">sqlite3</a>
  &#8226;   <a href="#sqlite3.__main__">sqlite3.__main__</a>
  &#8226;   <a href="#sqlite3.dbapi2">sqlite3.dbapi2</a>
@@ -37830,6 +37835,7 @@ imported by:
  &#8226;   <a href="#concurrent.futures.process">concurrent.futures.process</a>
  &#8226;   <a href="#configparser">configparser</a>
  &#8226;   <a href="#contextlib">contextlib</a>
+ &#8226;   <a href="#core.dependencies">core.dependencies</a>
  &#8226;   <a href="#cryptography.hazmat.bindings.openssl.binding">cryptography.hazmat.bindings.openssl.binding</a>
  &#8226;   <a href="#cryptography.utils">cryptography.utils</a>
  &#8226;   <a href="#ctypes">ctypes</a>
@@ -37839,7 +37845,6 @@ imported by:
  &#8226;   <a href="#curses">curses</a>
  &#8226;   <a href="#dataclasses">dataclasses</a>
  &#8226;   <a href="#decimal">decimal</a>
- &#8226;   <a href="#dependencies">dependencies</a>
  &#8226;   <a href="#dis">dis</a>
  &#8226;   <a href="#email._header_value_parser">email._header_value_parser</a>
  &#8226;   <a href="#email.generator">email.generator</a>
@@ -38157,10 +38162,35 @@ imported by:
 
 <div class="node">
   <a name="tasks"></a>
-  <a target="code" href="///D:/SbhSourceCode/new_zabbix/tasks.py" type="text/plain"><tt>tasks</tt></a>
+  <a target="code" href="///D:/SbhSourceCode/new_zabbix/tasks/__init__.py" type="text/plain"><tt>tasks</tt></a>
+<span class="moduletype">Package</span>  <div class="import">
+imports:
+    <a href="#tasks.batch_worker">tasks.batch_worker</a>
+ &#8226;   <a href="#tasks.task_store">tasks.task_store</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#core.dependencies">core.dependencies</a>
+ &#8226;   <a href="#tasks.batch_worker">tasks.batch_worker</a>
+ &#8226;   <a href="#tasks.task_store">tasks.task_store</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="tasks.batch_worker"></a>
+  <a target="code" href="///D:/SbhSourceCode/new_zabbix/tasks/batch_worker.py" type="text/plain"><tt>tasks.batch_worker</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
     <a href="#__future__">__future__</a>
+ &#8226;   <a href="#concurrent.futures">concurrent.futures</a>
+ &#8226;   <a href="#core.settings">core.settings</a>
+ &#8226;   <a href="#json">json</a>
+ &#8226;   <a href="#logging">logging</a>
+ &#8226;   <a href="#schemas.models">schemas.models</a>
+ &#8226;   <a href="#tasks">tasks</a>
  &#8226;   <a href="#threading">threading</a>
  &#8226;   <a href="#time">time</a>
  &#8226;   <a href="#typing">typing</a>
@@ -38169,7 +38199,29 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#dependencies">dependencies</a>
+    <a href="#core.dependencies">core.dependencies</a>
+ &#8226;   <a href="#tasks">tasks</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="tasks.task_store"></a>
+  <a target="code" href="///D:/SbhSourceCode/new_zabbix/tasks/task_store.py" type="text/plain"><tt>tasks.task_store</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#__future__">__future__</a>
+ &#8226;   <a href="#tasks">tasks</a>
+ &#8226;   <a href="#threading">threading</a>
+ &#8226;   <a href="#time">time</a>
+ &#8226;   <a href="#typing">typing</a>
+ &#8226;   <a href="#uuid">uuid</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#tasks">tasks</a>
 
   </div>
 
@@ -38309,7 +38361,6 @@ imported by:
  &#8226;   <a href="#asyncio.proactor_events">asyncio.proactor_events</a>
  &#8226;   <a href="#asyncio.runners">asyncio.runners</a>
  &#8226;   <a href="#asyncio.unix_events">asyncio.unix_events</a>
- &#8226;   <a href="#batch_worker">batch_worker</a>
  &#8226;   <a href="#click.globals">click.globals</a>
  &#8226;   <a href="#concurrent.futures._base">concurrent.futures._base</a>
  &#8226;   <a href="#concurrent.futures.process">concurrent.futures.process</a>
@@ -38353,7 +38404,8 @@ imported by:
  &#8226;   <a href="#socketserver">socketserver</a>
  &#8226;   <a href="#subprocess">subprocess</a>
  &#8226;   <a href="#sysconfig">sysconfig</a>
- &#8226;   <a href="#tasks">tasks</a>
+ &#8226;   <a href="#tasks.batch_worker">tasks.batch_worker</a>
+ &#8226;   <a href="#tasks.task_store">tasks.task_store</a>
  &#8226;   <a href="#unittest.mock">unittest.mock</a>
  &#8226;   <a href="#uvicorn.server">uvicorn.server</a>
  &#8226;   <a href="#uvicorn.supervisors.basereload">uvicorn.supervisors.basereload</a>
@@ -38381,11 +38433,11 @@ imported by:
  &#8226;   <a href="#_strptime">_strptime</a>
  &#8226;   <a href="#asyncio.base_events">asyncio.base_events</a>
  &#8226;   <a href="#asyncio.windows_events">asyncio.windows_events</a>
- &#8226;   <a href="#batch_store">batch_store</a>
- &#8226;   <a href="#batch_worker">batch_worker</a>
  &#8226;   <a href="#click._termui_impl">click._termui_impl</a>
  &#8226;   <a href="#click._winconsole">click._winconsole</a>
  &#8226;   <a href="#concurrent.futures._base">concurrent.futures._base</a>
+ &#8226;   <a href="#core.batch_store">core.batch_store</a>
+ &#8226;   <a href="#core.log_store">core.log_store</a>
  &#8226;   <a href="#datetime">datetime</a>
  &#8226;   <a href="#email._parseaddr">email._parseaddr</a>
  &#8226;   <a href="#email.generator">email.generator</a>
@@ -38403,7 +38455,6 @@ imported by:
  &#8226;   <a href="#httpx._auth">httpx._auth</a>
  &#8226;   <a href="#httpx._client">httpx._client</a>
  &#8226;   <a href="#invoke.runners">invoke.runners</a>
- &#8226;   <a href="#log_store">log_store</a>
  &#8226;   <a href="#logging">logging</a>
  &#8226;   <a href="#logging.handlers">logging.handlers</a>
  &#8226;   <a href="#main.py">main.py</a>
@@ -38436,7 +38487,8 @@ imported by:
  &#8226;   <a href="#ssl">ssl</a>
  &#8226;   <a href="#subprocess">subprocess</a>
  &#8226;   <a href="#tarfile">tarfile</a>
- &#8226;   <a href="#tasks">tasks</a>
+ &#8226;   <a href="#tasks.batch_worker">tasks.batch_worker</a>
+ &#8226;   <a href="#tasks.task_store">tasks.task_store</a>
  &#8226;   <a href="#threading">threading</a>
  &#8226;   <a href="#unittest.case">unittest.case</a>
  &#8226;   <a href="#unittest.runner">unittest.runner</a>
@@ -38936,8 +38988,6 @@ imported by:
  &#8226;   <a href="#api.agent">api.agent</a>
  &#8226;   <a href="#api.config">api.config</a>
  &#8226;   <a href="#asyncio.timeouts">asyncio.timeouts</a>
- &#8226;   <a href="#batch_store">batch_store</a>
- &#8226;   <a href="#batch_worker">batch_worker</a>
  &#8226;   <a href="#click._compat">click._compat</a>
  &#8226;   <a href="#click._termui_impl">click._termui_impl</a>
  &#8226;   <a href="#click._utils">click._utils</a>
@@ -38951,6 +39001,11 @@ imported by:
  &#8226;   <a href="#click.termui">click.termui</a>
  &#8226;   <a href="#click.types">click.types</a>
  &#8226;   <a href="#click.utils">click.utils</a>
+ &#8226;   <a href="#core.batch_store">core.batch_store</a>
+ &#8226;   <a href="#core.db_config">core.db_config</a>
+ &#8226;   <a href="#core.dependencies">core.dependencies</a>
+ &#8226;   <a href="#core.log_store">core.log_store</a>
+ &#8226;   <a href="#core.settings">core.settings</a>
  &#8226;   <a href="#cryptography.exceptions">cryptography.exceptions</a>
  &#8226;   <a href="#cryptography.hazmat.backends">cryptography.hazmat.backends</a>
  &#8226;   <a href="#cryptography.hazmat.bindings.openssl.binding">cryptography.hazmat.bindings.openssl.binding</a>
@@ -38960,9 +39015,6 @@ imported by:
  &#8226;   <a href="#cryptography.hazmat.primitives.ciphers.base">cryptography.hazmat.primitives.ciphers.base</a>
  &#8226;   <a href="#cryptography.hazmat.primitives.serialization.ssh">cryptography.hazmat.primitives.serialization.ssh</a>
  &#8226;   <a href="#cryptography.utils">cryptography.utils</a>
- &#8226;   <a href="#db_config">db_config</a>
- &#8226;   <a href="#dependencies">dependencies</a>
- &#8226;   <a href="#excel">excel</a>
  &#8226;   <a href="#fastapi._compat.main">fastapi._compat.main</a>
  &#8226;   <a href="#fastapi._compat.may_v1">fastapi._compat.may_v1</a>
  &#8226;   <a href="#fastapi._compat.model_field">fastapi._compat.model_field</a>
@@ -39067,8 +39119,6 @@ imported by:
  &#8226;   <a href="#invoke.terminals">invoke.terminals</a>
  &#8226;   <a href="#invoke.util">invoke.util</a>
  &#8226;   <a href="#invoke.watchers">invoke.watchers</a>
- &#8226;   <a href="#log_store">log_store</a>
- &#8226;   <a href="#models">models</a>
  &#8226;   <a href="#nacl.bindings.crypto_aead">nacl.bindings.crypto_aead</a>
  &#8226;   <a href="#nacl.bindings.crypto_box">nacl.bindings.crypto_box</a>
  &#8226;   <a href="#nacl.bindings.crypto_generichash">nacl.bindings.crypto_generichash</a>
@@ -39180,8 +39230,8 @@ imported by:
  &#8226;   <a href="#pydantic_core.core_schema">pydantic_core.core_schema</a>
  &#8226;   <a href="#python_multipart.decoders">python_multipart.decoders</a>
  &#8226;   <a href="#python_multipart.multipart">python_multipart.multipart</a>
- &#8226;   <a href="#service">service</a>
- &#8226;   <a href="#settings">settings</a>
+ &#8226;   <a href="#schemas.models">schemas.models</a>
+ &#8226;   <a href="#services.service">services.service</a>
  &#8226;   <a href="#setuptools">setuptools</a>
  &#8226;   <a href="#setuptools._distutils._modified">setuptools._distutils._modified</a>
  &#8226;   <a href="#setuptools._distutils.archive_util">setuptools._distutils.archive_util</a>
@@ -39277,13 +39327,15 @@ imported by:
  &#8226;   <a href="#starlette.staticfiles">starlette.staticfiles</a>
  &#8226;   <a href="#starlette.types">starlette.types</a>
  &#8226;   <a href="#starlette.websockets">starlette.websockets</a>
- &#8226;   <a href="#tasks">tasks</a>
+ &#8226;   <a href="#tasks.batch_worker">tasks.batch_worker</a>
+ &#8226;   <a href="#tasks.task_store">tasks.task_store</a>
  &#8226;   <a href="#tomllib._parser">tomllib._parser</a>
  &#8226;   <a href="#tomllib._re">tomllib._re</a>
  &#8226;   <a href="#tomllib._types">tomllib._types</a>
  &#8226;   <a href="#typing_extensions">typing_extensions</a>
  &#8226;   <a href="#typing_inspection.introspection">typing_inspection.introspection</a>
  &#8226;   <a href="#typing_inspection.typing_objects">typing_inspection.typing_objects</a>
+ &#8226;   <a href="#utils.excel">utils.excel</a>
  &#8226;   <a href="#uvicorn._compat">uvicorn._compat</a>
  &#8226;   <a href="#uvicorn._subprocess">uvicorn._subprocess</a>
  &#8226;   <a href="#uvicorn._types">uvicorn._types</a>
@@ -39954,7 +40006,7 @@ imported by:
  &#8226;   <a href="#nturl2path">nturl2path</a>
  &#8226;   <a href="#pathlib._local">pathlib._local</a>
  &#8226;   <a href="#pydoc">pydoc</a>
- &#8226;   <a href="#service">service</a>
+ &#8226;   <a href="#services.service">services.service</a>
  &#8226;   <a href="#setuptools.config._validate_pyproject.formats">setuptools.config._validate_pyproject.formats</a>
  &#8226;   <a href="#starlette.datastructures">starlette.datastructures</a>
  &#8226;   <a href="#starlette.formparsers">starlette.formparsers</a>
@@ -40058,7 +40110,29 @@ imported by:
   <a target="code" href="-" type="text/plain"><tt>utils</tt></a>
 <span class="moduletype">NamespacePackage</span>  <div class="import">
 imported by:
-    <a href="#utils.response">utils.response</a>
+    <a href="#utils.excel">utils.excel</a>
+ &#8226;   <a href="#utils.response">utils.response</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="utils.excel"></a>
+  <a target="code" href="///D:/SbhSourceCode/new_zabbix/utils/excel.py" type="text/plain"><tt>utils.excel</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#__future__">__future__</a>
+ &#8226;   <a href="#openpyxl">openpyxl</a>
+ &#8226;   <a href="#pathlib">pathlib</a>
+ &#8226;   <a href="#schemas.models">schemas.models</a>
+ &#8226;   <a href="#typing">typing</a>
+ &#8226;   <a href="#utils">utils</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#api.agent">api.agent</a>
 
   </div>
 
@@ -40107,9 +40181,8 @@ imports:
   <div class="import">
 imported by:
     <a href="#api.agent">api.agent</a>
- &#8226;   <a href="#batch_store">batch_store</a>
- &#8226;   <a href="#batch_worker">batch_worker</a>
  &#8226;   <a href="#click.types">click.types</a>
+ &#8226;   <a href="#core.batch_store">core.batch_store</a>
  &#8226;   <a href="#fastapi.encoders">fastapi.encoders</a>
  &#8226;   <a href="#pydantic._internal._generate_schema">pydantic._internal._generate_schema</a>
  &#8226;   <a href="#pydantic.deprecated.json">pydantic.deprecated.json</a>
@@ -40118,9 +40191,10 @@ imported by:
  &#8226;   <a href="#pydantic.v1.schema">pydantic.v1.schema</a>
  &#8226;   <a href="#pydantic.v1.types">pydantic.v1.types</a>
  &#8226;   <a href="#pydantic.v1.validators">pydantic.v1.validators</a>
- &#8226;   <a href="#service">service</a>
+ &#8226;   <a href="#services.service">services.service</a>
  &#8226;   <a href="#starlette.convertors">starlette.convertors</a>
- &#8226;   <a href="#tasks">tasks</a>
+ &#8226;   <a href="#tasks.batch_worker">tasks.batch_worker</a>
+ &#8226;   <a href="#tasks.task_store">tasks.task_store</a>
 
   </div>
 

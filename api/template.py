@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends
 
-from models import (
+from schemas.models import (
     TemplateDeleteRequest,
     GroupDeleteRequest,
     TemplateCreateRequest,
     TemplateUpdateRequest,
 )
-from dependencies import get_zabbix_service
+from core.dependencies import get_zabbix_service
 from utils.response import ok
 
 router = APIRouter(prefix="/api/zabbix", tags=["template"])

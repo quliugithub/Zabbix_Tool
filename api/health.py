@@ -4,8 +4,8 @@ from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 
 from utils.response import ok
-from dependencies import BASE_DIR
-from settings import get_settings
+from core.dependencies import BASE_DIR
+from core.settings import get_settings
 
 router = APIRouter()
 settings = get_settings()

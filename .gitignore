@@ -7,6 +7,9 @@ __pycache__/
 *.db
 .venv/
 venv/
+dist/
+build/
+uploads
 .envrc
 *.log
 .dockerignore

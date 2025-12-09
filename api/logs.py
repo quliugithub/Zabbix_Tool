@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from dependencies import get_log_store
+from core.dependencies import get_log_store
 from utils.response import ok
 
 router = APIRouter(prefix="/api/zabbix", tags=["logs"])
